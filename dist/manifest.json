@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "AI Assistant Extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for Perplexity, ChatGPT, and DeepSeek",
+  "icons": {
+    "16": "icon16.png"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://*.perplexity.ai/*",
+    "https://*.chatgpt.com/*",
+    "https://*.chat.deepseek.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.perplexity.ai/*",
+        "https://*.chatgpt.com/*",
+        "https://*.chat.deepseek.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icon16.png"
+    },
+    "default_title": "AI Assistant"
+  }
+}
