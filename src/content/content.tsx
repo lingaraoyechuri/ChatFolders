@@ -10,7 +10,7 @@ import { useSidePanelStore } from "../store/sidePanelStore";
 import { QuestionsCard } from "../components/QuestionsCard";
 import { QuestionsToggleButton } from "../components/QuestionsToggleButton";
 import {
-  FolderList,
+  FolderListComponent,
   NewFolderButtonComponent,
 } from "../components/sidePanel/FolderFeature";
 import { NewFolderModal } from "../components/sidePanel/NewFolderModal";
@@ -220,6 +220,7 @@ const App: React.FC = () => {
           handleDeleteFolder,
           openAddChatsModal,
           getFolderConversations,
+          removeChatFromFolder,
         } = useSidePanelStore();
 
         const handleNewFolderClick = () => {
@@ -253,6 +254,13 @@ const App: React.FC = () => {
           // This depends on how ChatGPT's UI is structured
         };
 
+        const handleRemoveChat = (folderId: string, chatId: string) => {
+          console.log(
+            `FolderManagement: Removing chat ${chatId} from folder ${folderId}`
+          );
+          removeChatFromFolder(folderId, chatId);
+        };
+
         return (
           <div className="folder-management">
             <NewFolderButtonComponent
@@ -261,7 +269,7 @@ const App: React.FC = () => {
             />
 
             {folders.length > 0 && (
-              <FolderList
+              <FolderListComponent
                 folders={folders}
                 onEditFolder={handleEditFolder}
                 onDeleteFolder={handleDeleteFolder}
@@ -269,6 +277,7 @@ const App: React.FC = () => {
                   openAddChatsModal(folderId, {} as any)
                 }
                 onSelectChat={handleSelectChat}
+                onRemoveChat={handleRemoveChat}
               />
             )}
           </div>

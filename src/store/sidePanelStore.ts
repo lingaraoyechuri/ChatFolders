@@ -73,7 +73,7 @@ interface SidePanelState {
   removeChatFromFolder: (
     folderId: string,
     chatId: string,
-    event: React.MouseEvent
+    event?: React.MouseEvent
   ) => void;
   getFolderConversations: (folderId: string) => Conversation[];
   // New actions for FolderSelectionModal
@@ -172,17 +172,43 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       set({ selectedFolder: folder, showAddChatsModal: true });
     }
   },
-  removeChatFromFolder: (folderId, chatId, event) => {
-    event.stopPropagation();
+  removeChatFromFolder: (folderId, chatId, event?: React.MouseEvent) => {
+    // Safely call stopPropagation if it exists
+    if (event && typeof event.stopPropagation === "function") {
+      event.stopPropagation();
+    }
+
+    console.log(`Store: Removing chat ${chatId} from folder ${folderId}`);
+
     const folder = get().folders.find((f) => f.id === folderId);
     if (folder) {
+      console.log(
+        `Store: Found folder ${folder.name} with ${folder.conversations.length} conversations`
+      );
+
       const updatedFolder: Folder = {
         ...folder,
         conversations: folder.conversations.filter(
           (conv) => conv.id !== chatId
         ),
       };
+
+      console.log(
+        `Store: Updated folder now has ${updatedFolder.conversations.length} conversations`
+      );
+
+      // Update the folder in the store
       get().updateFolder(updatedFolder);
+
+      // Save to localStorage
+      const updatedFolders = get().folders.map((f) =>
+        f.id === folderId ? updatedFolder : f
+      );
+      saveFoldersToStorage(updatedFolders);
+
+      console.log(`Store: Saved updated folders to localStorage`);
+    } else {
+      console.log(`Store: Folder ${folderId} not found`);
     }
   },
   getFolderConversations: (folderId) => {

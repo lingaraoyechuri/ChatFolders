@@ -110,6 +110,8 @@ const ChatsContainer = styled.div`
 
 const ChatItem = styled.div`
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 8px 12px;
   color: #d1d5db;
   font-size: 14px;
@@ -118,6 +120,34 @@ const ChatItem = styled.div`
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.07);
+  }
+`;
+
+const ChatTitle = styled.span`
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const RemoveButton = styled.button`
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  ${ChatItem}:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    color: #ef4444;
   }
 `;
 
@@ -173,6 +203,7 @@ interface FolderComponentProps {
   onDeleteFolder?: (folderId: string) => void;
   onAddChats?: (folderId: string) => void;
   onSelectChat?: (chatId: string, folderId: string) => void;
+  onRemoveChat?: (folderId: string, chatId: string) => void;
 }
 
 // Individual Folder Component
@@ -182,6 +213,7 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
   onDeleteFolder,
   onAddChats,
   onSelectChat,
+  onRemoveChat,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -214,6 +246,20 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
     onSelectChat?.(chatId, folder.id);
   };
 
+  const handleRemoveChat = (e: React.MouseEvent, chatId: string) => {
+    e.stopPropagation();
+    console.log(
+      `FolderComponent: Removing chat ${chatId} from folder ${folder.id}`
+    );
+
+    // Make sure we're passing the folder ID and chat ID correctly
+    if (onRemoveChat) {
+      onRemoveChat(folder.id, chatId);
+    } else {
+      console.error("onRemoveChat function is not defined");
+    }
+  };
+
   return (
     <FolderCard>
       <FolderHeader onClick={handleToggleExpand}>
@@ -239,7 +285,24 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
         <ChatsContainer>
           {folder.conversations.map((chat) => (
             <ChatItem key={chat.id} onClick={() => handleChatClick(chat.id)}>
-              {chat.title}
+              <ChatTitle>{chat.title}</ChatTitle>
+              <RemoveButton onClick={(e) => handleRemoveChat(e, chat.id)}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M12 4L4 12M4 4L12 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </RemoveButton>
             </ChatItem>
           ))}
         </ChatsContainer>
@@ -281,15 +344,17 @@ interface FolderListProps {
   onDeleteFolder?: (folderId: string) => void;
   onAddChats?: (folderId: string) => void;
   onSelectChat?: (chatId: string, folderId: string) => void;
+  onRemoveChat?: (folderId: string, chatId: string) => void;
 }
 
 // Folder List Component
-export const FolderList: React.FC<FolderListProps> = ({
+export const FolderListComponent: React.FC<FolderListProps> = ({
   folders,
   onEditFolder,
   onDeleteFolder,
   onAddChats,
   onSelectChat,
+  onRemoveChat,
 }) => {
   return (
     <FolderContainer>
@@ -301,6 +366,7 @@ export const FolderList: React.FC<FolderListProps> = ({
           onDeleteFolder={onDeleteFolder}
           onAddChats={onAddChats}
           onSelectChat={onSelectChat}
+          onRemoveChat={onRemoveChat}
         />
       ))}
     </FolderContainer>
