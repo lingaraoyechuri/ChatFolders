@@ -14,6 +14,7 @@ import {
   NewFolderButtonComponent,
 } from "../components/sidePanel/FolderFeature";
 import { NewFolderModal } from "../components/sidePanel/NewFolderModal";
+import { FolderSelectionModal } from "../components/sidePanel/FolderSelectionModal";
 
 // Added NewFolderModal component from your interfac
 
@@ -24,10 +25,12 @@ const addFolderButtonToChats = () => {
     if (!chatItem.querySelector(".folder-button")) {
       const folderButton = document.createElement("button");
       folderButton.className = "folder-button";
-      folderButton.innerHTML = "📁";
+      folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
       folderButton.style.cssText = `
         position: absolute;
-        right: 10px;
+        right: 28px;
         top: 50%;
         transform: translateY(-50%);
         background: none;
@@ -36,6 +39,9 @@ const addFolderButtonToChats = () => {
         padding: 5px;
         opacity: 0;
         transition: opacity 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       `;
       (chatItem as HTMLElement).style.position = "relative";
       chatItem.appendChild(folderButton);
@@ -53,6 +59,7 @@ const addFolderButtonToChats = () => {
         e.stopPropagation();
         const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
         if (chatId) {
+          // Remove alert and just show the folder selection modal
           useSidePanelStore.getState().setSelectedChats([chatId]);
           useSidePanelStore.getState().setShowFolderSelectionModal(true);
         }
@@ -94,7 +101,12 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const { setShowNewFolderModal, showNewFolderModal } = useSidePanelStore();
+  const {
+    setShowNewFolderModal,
+    showNewFolderModal,
+    showFolderSelectionModal,
+    selectedChats,
+  } = useSidePanelStore();
 
   const insertNewFolderButtonAboveTarget = () => {
     const targetElement = document.querySelector(
@@ -248,6 +260,7 @@ const App: React.FC = () => {
           />
           {showQuestions && <QuestionsCard questions={questions} />}
           {showNewFolderModal && <NewFolderModal />}
+          {showFolderSelectionModal && <FolderSelectionModal />}
         </>
       )}
     </>

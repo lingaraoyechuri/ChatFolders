@@ -16,7 +16,7 @@ import { useSidePanelStore } from "../../store/sidePanelStore";
 import { Conversation, Folder } from "../../types/sidePanel";
 
 interface FolderSelectionModalProps {
-  chat: Conversation;
+  chat?: Conversation;
   onClose?: () => void;
 }
 
@@ -83,7 +83,7 @@ export const FolderSelectionModal: React.FC<FolderSelectionModalProps> = ({
           color: "#ffffff",
         }}
       >
-        Add "{chat.title}" to Folders
+        Add "{chat?.title}" to Folders
         <IconButton onClick={handleClose} sx={{ color: "#8a8d91" }}>
           <CloseIcon />
         </IconButton>

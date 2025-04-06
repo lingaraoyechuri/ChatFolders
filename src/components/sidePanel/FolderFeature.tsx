@@ -18,19 +18,26 @@ const NewFolderButton = styled.button`
   border-radius: 8px;
   margin-bottom: 12px;
   border: none;
+  color: #0d0d0d;
   cursor: pointer;
-  color: white;
   width: 100%;
   text-align: left;
+  height: 36px;
+  gap: 12px;
+  transition: transform 0.1s, box-shadow 0.2s;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 `;
 
 const FolderIcon = styled.span`
-  margin-right: 12px;
-  font-size: 16px;
+  font-size: 20px;
+  font-weight: bold;
 `;
 
 const FolderCard = styled.div<{ isActive?: boolean }>`
@@ -261,7 +268,7 @@ export const NewFolderButtonComponent: React.FC<NewFolderButtonProps> = ({
 
   return (
     <NewFolderButton onClick={handleClick}>
-      <FolderIcon>📁</FolderIcon>
+      <FolderIcon>+</FolderIcon>
       {label}
     </NewFolderButton>
   );
