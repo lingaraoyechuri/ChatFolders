@@ -83,7 +83,7 @@ export const FolderSelectionModal: React.FC<FolderSelectionModalProps> = ({
           color: "#ffffff",
         }}
       >
-        Add "{chat?.title}" to Folders
+        Add "{selectedChatForFolders?.title || "Chat"}" to Folders
         <IconButton onClick={handleClose} sx={{ color: "#8a8d91" }}>
           <CloseIcon />
         </IconButton>

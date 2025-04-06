@@ -1,6 +1,28 @@
 import { create } from "zustand";
 import { Folder, Conversation, Platform } from "../types/sidePanel";
 
+// Load initial state from localStorage
+const loadInitialState = () => {
+  try {
+    const savedFolders = localStorage.getItem("folders");
+    return {
+      folders: savedFolders ? JSON.parse(savedFolders) : [],
+    };
+  } catch (error) {
+    console.error("Error loading state from localStorage:", error);
+    return { folders: [] };
+  }
+};
+
+// Save folders to localStorage
+const saveFoldersToStorage = (folders: Folder[]) => {
+  try {
+    localStorage.setItem("folders", JSON.stringify(folders));
+  } catch (error) {
+    console.error("Error saving folders to localStorage:", error);
+  }
+};
+
 interface SidePanelState {
   folders: Folder[];
   selectedFolder: Folder | null;
@@ -64,7 +86,7 @@ interface SidePanelState {
 }
 
 export const useSidePanelStore = create<SidePanelState>((set, get) => ({
-  folders: [],
+  ...loadInitialState(),
   selectedFolder: null,
   isOpen: false,
   newFolderName: "",
@@ -82,17 +104,27 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
   editingFolderName: "",
   editingFolderEmoji: "📁",
 
-  setFolders: (folders) => set({ folders }),
-  addFolder: (folder) =>
-    set((state) => ({ folders: [...state.folders, folder] })),
-  updateFolder: (folder) =>
-    set((state) => ({
-      folders: state.folders.map((f) => (f.id === folder.id ? folder : f)),
-    })),
-  deleteFolder: (folderId) =>
-    set((state) => ({
-      folders: state.folders.filter((f) => f.id !== folderId),
-    })),
+  setFolders: (folders) => {
+    set({ folders });
+    saveFoldersToStorage(folders);
+  },
+  addFolder: (folder) => {
+    const newFolders = [...get().folders, folder];
+    set({ folders: newFolders });
+    saveFoldersToStorage(newFolders);
+  },
+  updateFolder: (folder) => {
+    const newFolders = get().folders.map((f) =>
+      f.id === folder.id ? folder : f
+    );
+    set({ folders: newFolders });
+    saveFoldersToStorage(newFolders);
+  },
+  deleteFolder: (folderId) => {
+    const newFolders = get().folders.filter((f) => f.id !== folderId);
+    set({ folders: newFolders });
+    saveFoldersToStorage(newFolders);
+  },
   setSelectedFolder: (folder) => set({ selectedFolder: folder }),
   setIsOpen: (isOpen) => set({ isOpen }),
   setNewFolderName: (name) => set({ newFolderName: name }),
@@ -278,6 +310,7 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       selectedChatForFolders: null,
       showFolderSelectionModal: false,
     });
+    saveFoldersToStorage(updatedFolders);
   },
 
   setEditingFolderName: (name) => set({ editingFolderName: name }),

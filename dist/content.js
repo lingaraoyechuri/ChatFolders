@@ -59381,7 +59381,7 @@ const FolderSelectionModal = ({ chat, onClose, }) => {
                     justifyContent: "space-between",
                     alignItems: "center",
                     color: "#ffffff",
-                }, children: ["Add \"", chat === null || chat === void 0 ? void 0 : chat.title, "\" to Folders", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_4__["default"], { onClick: handleClose, sx: { color: "#8a8d91" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_icons_material__WEBPACK_IMPORTED_MODULE_5__["default"], {}) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_6__["default"], { children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_7__["default"], { children: folders.map((folder) => {
+                }, children: ["Add \"", (selectedChatForFolders === null || selectedChatForFolders === void 0 ? void 0 : selectedChatForFolders.title) || "Chat", "\" to Folders", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_4__["default"], { onClick: handleClose, sx: { color: "#8a8d91" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_icons_material__WEBPACK_IMPORTED_MODULE_5__["default"], {}) })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_6__["default"], { children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_7__["default"], { children: folders.map((folder) => {
                         var _a;
                         return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_8__["default"], { component: "div", onClick: () => handleFolderToggle(folder.id), sx: {
                                 cursor: "pointer",
@@ -59586,92 +59586,83 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var zustand__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! zustand */ "./node_modules/zustand/esm/index.mjs");
 
-const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, get) => ({
-    folders: [],
-    selectedFolder: null,
-    isOpen: false,
-    newFolderName: "",
-    selectedEmoji: "📁",
-    editingFolder: null,
-    showNewFolderModal: false,
-    showFolderSelectionModal: false,
-    showAddChatsModal: false,
-    selectedChats: [],
-    searchQuery: "",
-    editingFolderId: null,
-    expandedFolders: {},
-    activeDropdown: null,
-    selectedChatForFolders: null,
-    editingFolderName: "",
-    editingFolderEmoji: "📁",
-    setFolders: (folders) => set({ folders }),
-    addFolder: (folder) => set((state) => ({ folders: [...state.folders, folder] })),
-    updateFolder: (folder) => set((state) => ({
-        folders: state.folders.map((f) => (f.id === folder.id ? folder : f)),
-    })),
-    deleteFolder: (folderId) => set((state) => ({
-        folders: state.folders.filter((f) => f.id !== folderId),
-    })),
-    setSelectedFolder: (folder) => set({ selectedFolder: folder }),
-    setIsOpen: (isOpen) => set({ isOpen }),
-    setNewFolderName: (name) => set({ newFolderName: name }),
-    setSelectedEmoji: (emoji) => set({ selectedEmoji: emoji }),
-    setEditingFolder: (folder) => set({ editingFolder: folder }),
-    setShowNewFolderModal: (show) => set({ showNewFolderModal: show }),
-    setShowFolderSelectionModal: (show) => set({ showFolderSelectionModal: show }),
-    setShowAddChatsModal: (show) => set({ showAddChatsModal: show }),
-    setSelectedChats: (chats) => set({ selectedChats: chats }),
-    setSearchQuery: (query) => set({ searchQuery: query }),
-    setSelectedChatForFolders: (chat) => set({ selectedChatForFolders: chat }),
+// Load initial state from localStorage
+const loadInitialState = () => {
+    try {
+        const savedFolders = localStorage.getItem("folders");
+        return {
+            folders: savedFolders ? JSON.parse(savedFolders) : [],
+        };
+    }
+    catch (error) {
+        console.error("Error loading state from localStorage:", error);
+        return { folders: [] };
+    }
+};
+// Save folders to localStorage
+const saveFoldersToStorage = (folders) => {
+    try {
+        localStorage.setItem("folders", JSON.stringify(folders));
+    }
+    catch (error) {
+        console.error("Error saving folders to localStorage:", error);
+    }
+};
+const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, get) => (Object.assign(Object.assign({}, loadInitialState()), { selectedFolder: null, isOpen: false, newFolderName: "", selectedEmoji: "📁", editingFolder: null, showNewFolderModal: false, showFolderSelectionModal: false, showAddChatsModal: false, selectedChats: [], searchQuery: "", editingFolderId: null, expandedFolders: {}, activeDropdown: null, selectedChatForFolders: null, editingFolderName: "", editingFolderEmoji: "📁", setFolders: (folders) => {
+        set({ folders });
+        saveFoldersToStorage(folders);
+    }, addFolder: (folder) => {
+        const newFolders = [...get().folders, folder];
+        set({ folders: newFolders });
+        saveFoldersToStorage(newFolders);
+    }, updateFolder: (folder) => {
+        const newFolders = get().folders.map((f) => f.id === folder.id ? folder : f);
+        set({ folders: newFolders });
+        saveFoldersToStorage(newFolders);
+    }, deleteFolder: (folderId) => {
+        const newFolders = get().folders.filter((f) => f.id !== folderId);
+        set({ folders: newFolders });
+        saveFoldersToStorage(newFolders);
+    }, setSelectedFolder: (folder) => set({ selectedFolder: folder }), setIsOpen: (isOpen) => set({ isOpen }), setNewFolderName: (name) => set({ newFolderName: name }), setSelectedEmoji: (emoji) => set({ selectedEmoji: emoji }), setEditingFolder: (folder) => set({ editingFolder: folder }), setShowNewFolderModal: (show) => set({ showNewFolderModal: show }), setShowFolderSelectionModal: (show) => set({ showFolderSelectionModal: show }), setShowAddChatsModal: (show) => set({ showAddChatsModal: show }), setSelectedChats: (chats) => set({ selectedChats: chats }), setSearchQuery: (query) => set({ searchQuery: query }), setSelectedChatForFolders: (chat) => set({ selectedChatForFolders: chat }), 
     // New actions for FolderItem
-    setEditingFolderId: (id) => set({ editingFolderId: id }),
-    toggleFolderExpansion: (folderId) => set((state) => ({
+    setEditingFolderId: (id) => set({ editingFolderId: id }), toggleFolderExpansion: (folderId) => set((state) => ({
         expandedFolders: Object.assign(Object.assign({}, state.expandedFolders), { [folderId]: !state.expandedFolders[folderId] }),
-    })),
-    handleFolderOptions: (folderId, event) => {
+    })), handleFolderOptions: (folderId, event) => {
         event.stopPropagation();
         set((state) => ({
             activeDropdown: state.activeDropdown === folderId ? null : folderId,
         }));
-    },
-    handleEditFolder: (folder) => {
+    }, handleEditFolder: (folder) => {
         set({
             editingFolder: folder,
             editingFolderId: folder.id,
             newFolderName: folder.name,
             selectedEmoji: folder.emoji,
         });
-    },
-    handleDeleteFolder: (folderId) => {
+    }, handleDeleteFolder: (folderId) => {
         get().deleteFolder(folderId);
         set({ activeDropdown: null });
-    },
-    openAddChatsModal: (folderId, event) => {
+    }, openAddChatsModal: (folderId, event) => {
         event.stopPropagation();
         const folder = get().folders.find((f) => f.id === folderId);
         if (folder) {
             set({ selectedFolder: folder, showAddChatsModal: true });
         }
-    },
-    removeChatFromFolder: (folderId, chatId, event) => {
+    }, removeChatFromFolder: (folderId, chatId, event) => {
         event.stopPropagation();
         const folder = get().folders.find((f) => f.id === folderId);
         if (folder) {
             const updatedFolder = Object.assign(Object.assign({}, folder), { conversations: folder.conversations.filter((conv) => conv.id !== chatId) });
             get().updateFolder(updatedFolder);
         }
-    },
-    getFolderConversations: (folderId) => {
+    }, getFolderConversations: (folderId) => {
         const folder = get().folders.find((f) => f.id === folderId);
         return folder ? folder.conversations : [];
-    },
-    closeAddChatsModal: () => set({ showAddChatsModal: false }),
-    toggleChatSelection: (chatId) => set((state) => ({
+    }, closeAddChatsModal: () => set({ showAddChatsModal: false }), toggleChatSelection: (chatId) => set((state) => ({
         selectedChats: state.selectedChats.includes(chatId)
             ? state.selectedChats.filter((id) => id !== chatId)
             : [...state.selectedChats, chatId],
-    })),
-    getAvailableChats: () => {
+    })), getAvailableChats: () => {
         const { folders, selectedFolder } = get();
         if (!selectedFolder)
             return [];
@@ -59697,8 +59688,7 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
             };
         })
             .filter((chat) => chat !== null);
-    },
-    handleSubmitNewFolder: () => {
+    }, handleSubmitNewFolder: () => {
         const { newFolderName, selectedEmoji } = get();
         if (!newFolderName.trim())
             return;
@@ -59711,16 +59701,14 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
         };
         get().addFolder(newFolder);
         set({ newFolderName: "", showNewFolderModal: false });
-    },
-    handleSaveEdit: () => {
+    }, handleSaveEdit: () => {
         const { editingFolder, newFolderName, selectedEmoji } = get();
         if (!editingFolder || !newFolderName.trim())
             return;
         const updatedFolder = Object.assign(Object.assign({}, editingFolder), { name: newFolderName.trim(), emoji: selectedEmoji });
         get().updateFolder(updatedFolder);
         set({ editingFolder: null, newFolderName: "", showNewFolderModal: false });
-    },
-    addChatsToFolder: () => {
+    }, addChatsToFolder: () => {
         const { selectedFolder, selectedChats } = get();
         if (!selectedFolder)
             return;
@@ -59737,8 +59725,7 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
             ] });
         get().updateFolder(updatedFolder);
         set({ selectedChats: [], showAddChatsModal: false });
-    },
-    handleAddChatToFolders: () => {
+    }, handleAddChatToFolders: () => {
         var _a;
         const { folders, selectedChatForFolders } = get();
         if (!((_a = selectedChatForFolders === null || selectedChatForFolders === void 0 ? void 0 : selectedChatForFolders.folderIds) === null || _a === void 0 ? void 0 : _a.length))
@@ -59765,17 +59752,13 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
             selectedChatForFolders: null,
             showFolderSelectionModal: false,
         });
-    },
-    setEditingFolderName: (name) => set({ editingFolderName: name }),
-    setEditingFolderEmoji: (emoji) => set({ editingFolderEmoji: emoji }),
-    handleCancelNewFolder: () => set({ newFolderName: "", showNewFolderModal: false }),
-    handleCancelEdit: () => set({
+        saveFoldersToStorage(updatedFolders);
+    }, setEditingFolderName: (name) => set({ editingFolderName: name }), setEditingFolderEmoji: (emoji) => set({ editingFolderEmoji: emoji }), handleCancelNewFolder: () => set({ newFolderName: "", showNewFolderModal: false }), handleCancelEdit: () => set({
         editingFolder: null,
         editingFolderName: "",
         editingFolderEmoji: "📁",
         showNewFolderModal: false,
-    }),
-}));
+    }) })));
 
 
 /***/ }),
@@ -60364,13 +60347,25 @@ const addFolderButtonToChats = () => {
                 folderButton.style.opacity = "0";
             });
             folderButton.addEventListener("click", (e) => {
-                var _a;
+                var _a, _b;
                 e.preventDefault();
                 e.stopPropagation();
                 const chatId = (_a = chatItem.getAttribute("href")) === null || _a === void 0 ? void 0 : _a.split("/c/")[1];
                 if (chatId) {
-                    // Remove alert and just show the folder selection modal
-                    _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setSelectedChats([chatId]);
+                    // Create a Conversation object for the selected chat
+                    const chatTitle = ((_b = chatItem.textContent) === null || _b === void 0 ? void 0 : _b.trim()) || `Chat ${chatId}`;
+                    const chatUrl = `/c/${chatId}`;
+                    // Set the selected chat for folders with the chat information
+                    _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setSelectedChatForFolders({
+                        id: chatId,
+                        title: chatTitle,
+                        url: chatUrl,
+                        preview: "",
+                        platform: "chatgpt",
+                        timestamp: Date.now(),
+                        folderIds: [],
+                    });
+                    // Show the folder selection modal
                     _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setShowFolderSelectionModal(true);
                 }
             });

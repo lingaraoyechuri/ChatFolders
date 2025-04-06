@@ -59,8 +59,22 @@ const addFolderButtonToChats = () => {
         e.stopPropagation();
         const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
         if (chatId) {
-          // Remove alert and just show the folder selection modal
-          useSidePanelStore.getState().setSelectedChats([chatId]);
+          // Create a Conversation object for the selected chat
+          const chatTitle = chatItem.textContent?.trim() || `Chat ${chatId}`;
+          const chatUrl = `/c/${chatId}`;
+
+          // Set the selected chat for folders with the chat information
+          useSidePanelStore.getState().setSelectedChatForFolders({
+            id: chatId,
+            title: chatTitle,
+            url: chatUrl,
+            preview: "",
+            platform: "chatgpt",
+            timestamp: Date.now(),
+            folderIds: [],
+          });
+
+          // Show the folder selection modal
           useSidePanelStore.getState().setShowFolderSelectionModal(true);
         }
       });
