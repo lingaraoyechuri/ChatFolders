@@ -78,6 +78,31 @@ const addFolderButtonToChats = () => {
           useSidePanelStore.getState().setShowFolderSelectionModal(true);
         }
       });
+
+      // Add click handler to the chat item itself to prevent default navigation
+      chatItem.addEventListener("click", (e) => {
+        // Only prevent default if it's a saved chat (has a folder button) and not a programmatic navigation
+        if (
+          chatItem.querySelector(".folder-button") &&
+          !chatItem.hasAttribute("data-programmatic-navigation")
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
+          if (chatId) {
+            // Use history API to navigate without page reload
+            window.history.pushState({}, "", `/c/${chatId}`);
+
+            // Dispatch a custom event to notify that navigation has occurred
+            window.dispatchEvent(
+              new CustomEvent("chatNavigation", {
+                detail: { chatId },
+              })
+            );
+          }
+        }
+      });
     }
   });
 };
@@ -91,6 +116,50 @@ const App: React.FC = () => {
   >(null);
   const [showQuestions, setShowQuestions] = React.useState(false);
   const [questions, setQuestions] = React.useState<string[]>([]);
+
+  // Add event listener for chat navigation
+  React.useEffect(() => {
+    const handleChatNavigation = (event: CustomEvent) => {
+      const { chatId } = event.detail;
+
+      // Find the chat element
+      const chatElement = document.querySelector(
+        `a[href="/c/${chatId}"]`
+      ) as HTMLElement;
+      if (chatElement) {
+        // Create a data attribute to mark this as a programmatic navigation
+        chatElement.setAttribute("data-programmatic-navigation", "true");
+
+        // Create and dispatch a synthetic click event
+        const clickEvent = new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        });
+
+        // Dispatch the click event
+        chatElement.dispatchEvent(clickEvent);
+
+        // Remove the data attribute after a short delay
+        setTimeout(() => {
+          chatElement.removeAttribute("data-programmatic-navigation");
+        }, 100);
+      }
+    };
+
+    // Add event listener for our custom chatNavigation event
+    window.addEventListener(
+      "chatNavigation",
+      handleChatNavigation as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "chatNavigation",
+        handleChatNavigation as EventListener
+      );
+    };
+  }, []);
 
   React.useEffect(() => {
     // Detect which platform we're on
@@ -167,9 +236,21 @@ const App: React.FC = () => {
         };
 
         const handleSelectChat = (chatId: string, folderId: string) => {
-          // Implement chat selection logic here
-          // This could navigate to the chat or perform other actions
-          window.location.href = `/c/${chatId}`;
+          // Prevent default navigation and handle it programmatically
+          const chatUrl = `/c/${chatId}`;
+
+          // Use history API to navigate without page reload
+          window.history.pushState({}, "", chatUrl);
+
+          // Dispatch a custom event to notify that navigation has occurred
+          window.dispatchEvent(
+            new CustomEvent("chatNavigation", {
+              detail: { chatId, folderId },
+            })
+          );
+
+          // Optionally, you can also update the UI to reflect the selected chat
+          // This depends on how ChatGPT's UI is structured
         };
 
         return (
@@ -200,36 +281,73 @@ const App: React.FC = () => {
   // Add folder button observer effect
   React.useEffect(() => {
     if (currentPlatform === "chatgpt") {
-      const sidebar = document.querySelector('nav[class*="flex-col"]');
-      if (!sidebar) return;
+      // Function to add folder buttons to the sidenav
+      const addFolderButtonsToSidenav = () => {
+        const sidebar = document.querySelector('nav[class*="flex-col"]');
+        if (!sidebar) return;
 
-      const folderButtonObserver = new MutationObserver(() => {
         addFolderButtonToChats();
         insertNewFolderButtonAboveTarget();
+
+        // Render NewFolderButtonComponent in the specified class
+        const targetElement = document.querySelector(
+          ".group > div > div:nth-child(2)"
+        );
+        if (
+          targetElement &&
+          !targetElement.querySelector(".new-folder-button-container")
+        ) {
+          const newFolderButtonContainer = document.createElement("div");
+          newFolderButtonContainer.className = "new-folder-button-container";
+          targetElement.appendChild(newFolderButtonContainer);
+          const root = createRoot(newFolderButtonContainer);
+          root.render(<NewFolderButtonComponent onClick={() => {}} />);
+        }
+      };
+
+      // Initial setup
+      addFolderButtonsToSidenav();
+
+      // Set up observer for the entire document to detect when sidenav is reopened
+      const documentObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+            // Check if the sidenav was added back to the DOM
+            const sidebar = document.querySelector('nav[class*="flex-col"]');
+            if (sidebar) {
+              addFolderButtonsToSidenav();
+            }
+          }
+        }
       });
 
-      folderButtonObserver.observe(sidebar, {
+      // Observe the entire document for changes
+      documentObserver.observe(document.body, {
         childList: true,
         subtree: true,
       });
 
-      // Initial update
-      addFolderButtonToChats();
-      insertNewFolderButtonAboveTarget();
+      // Set up observer for dynamic chat elements within the sidebar
+      const sidebar = document.querySelector('nav[class*="flex-col"]');
+      if (sidebar) {
+        const folderButtonObserver = new MutationObserver(() => {
+          addFolderButtonToChats();
+          insertNewFolderButtonAboveTarget();
+        });
 
-      // Render NewFolderButtonComponent in the specified class
-      const targetElement = document.querySelector(
-        ".group > div > div:nth-child(2)"
-      );
-      if (targetElement) {
-        const newFolderButtonContainer = document.createElement("div");
-        targetElement.appendChild(newFolderButtonContainer);
-        const root = createRoot(newFolderButtonContainer);
-        root.render(<NewFolderButtonComponent onClick={() => {}} />);
+        folderButtonObserver.observe(sidebar, {
+          childList: true,
+          subtree: true,
+        });
+
+        return () => {
+          folderButtonObserver.disconnect();
+          documentObserver.disconnect();
+        };
       }
 
       return () => {
-        folderButtonObserver.disconnect();
+        documentObserver.disconnect();
       };
     }
   }, [currentPlatform]);
