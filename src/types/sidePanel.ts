@@ -26,6 +26,7 @@ export interface SidePanelProps {
   isOpen: boolean;
   onClose: () => void;
   platform: Platform;
+  currentChatId?: string;
 }
 
 export interface DropdownProps {

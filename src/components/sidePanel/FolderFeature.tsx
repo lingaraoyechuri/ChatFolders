@@ -108,7 +108,7 @@ const ChatsContainer = styled.div`
   padding: 0 8px 8px 8px;
 `;
 
-const ChatItem = styled.div`
+const ChatItem = styled.div<{ isActive?: boolean }>`
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -117,10 +117,21 @@ const ChatItem = styled.div`
   font-size: 14px;
   border-radius: 6px;
   cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease-in-out;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.07);
   }
+
+  ${({ isActive }) =>
+    isActive &&
+    `
+    background-color: rgba(16, 163, 127, 0.15);
+    border-left: 3px solid #10a37f;
+    font-weight: 500;
+    color: #ffffff;
+  `}
 `;
 
 const ChatTitle = styled.span`
@@ -199,27 +210,52 @@ export const FolderDropdown: React.FC<DropdownProps> = ({
 // Props for folder component
 interface FolderComponentProps {
   folder: Folder;
-  onEditFolder?: (folderId: string) => void;
-  onDeleteFolder?: (folderId: string) => void;
-  onAddChats?: (folderId: string) => void;
-  onSelectChat?: (chatId: string, folderId: string) => void;
-  onRemoveChat?: (folderId: string, chatId: string) => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onEditFolder: (folderId: string) => void;
+  onDeleteFolder: (folderId: string) => void;
+  onAddChats: (folderId: string) => void;
+  onSelectChat: (chatId: string, folderId: string) => void;
+  onRemoveChat: (folderId: string, chatId: string) => void;
+  onUpdateChatTitle?: (
+    folderId: string,
+    chatId: string,
+    newTitle: string
+  ) => void;
+  currentChatId?: string; // Add this prop to track the current chat
 }
 
 // Individual Folder Component
 export const FolderComponent: React.FC<FolderComponentProps> = ({
   folder,
+  isExpanded,
+  onToggleExpand,
   onEditFolder,
   onDeleteFolder,
   onAddChats,
   onSelectChat,
   onRemoveChat,
+  onUpdateChatTitle,
+  currentChatId,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | undefined>(
+    currentChatId
+  );
+
+  // Update activeChatId when currentChatId changes
+  React.useEffect(() => {
+    console.log(`FolderComponent: currentChatId changed to ${currentChatId}`);
+    setActiveChatId(currentChatId);
+  }, [currentChatId]);
+
+  // Add debug logs
+  console.log(
+    `FolderComponent for folder ${folder.id}: currentChatId = ${currentChatId}, activeChatId = ${activeChatId}`
+  );
 
   const handleToggleExpand = () => {
-    setIsExpanded(!isExpanded);
+    onToggleExpand();
   };
 
   const handleToggleDropdown = (e: React.MouseEvent) => {
@@ -229,21 +265,25 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
 
   const handleEdit = () => {
     setShowDropdown(false);
-    onEditFolder?.(folder.id);
+    onEditFolder(folder.id);
   };
 
   const handleDelete = () => {
     setShowDropdown(false);
-    onDeleteFolder?.(folder.id);
+    onDeleteFolder(folder.id);
   };
 
   const handleAddChats = () => {
     setShowDropdown(false);
-    onAddChats?.(folder.id);
+    onAddChats(folder.id);
   };
 
   const handleChatClick = (chatId: string) => {
-    onSelectChat?.(chatId, folder.id);
+    console.log(`FolderComponent: Chat clicked - ${chatId}`);
+    // Update the active chat ID immediately for better UX
+    setActiveChatId(chatId);
+    // Then call the parent handler
+    onSelectChat(chatId, folder.id);
   };
 
   const handleRemoveChat = (e: React.MouseEvent, chatId: string) => {
@@ -283,28 +323,37 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
 
       {isExpanded && (
         <ChatsContainer>
-          {folder.conversations.map((chat) => (
-            <ChatItem key={chat.id} onClick={() => handleChatClick(chat.id)}>
-              <ChatTitle>{chat.title}</ChatTitle>
-              <RemoveButton onClick={(e) => handleRemoveChat(e, chat.id)}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 4L4 12M4 4L12 12"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </RemoveButton>
-            </ChatItem>
-          ))}
+          {folder.conversations.map((chat) => {
+            // Add debug logs for each chat
+            const isActive = activeChatId === chat.id;
+            console.log(`Chat ${chat.id}: isActive = ${isActive}`);
+            return (
+              <ChatItem
+                key={chat.id}
+                onClick={() => handleChatClick(chat.id)}
+                isActive={isActive}
+              >
+                <ChatTitle>{chat.title}</ChatTitle>
+                <RemoveButton onClick={(e) => handleRemoveChat(e, chat.id)}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M12 4L4 12M4 4L12 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </RemoveButton>
+              </ChatItem>
+            );
+          })}
         </ChatsContainer>
       )}
     </FolderCard>
@@ -340,11 +389,17 @@ export const NewFolderButtonComponent: React.FC<NewFolderButtonProps> = ({
 // Props for folder list
 interface FolderListProps {
   folders: Folder[];
-  onEditFolder?: (folderId: string) => void;
-  onDeleteFolder?: (folderId: string) => void;
-  onAddChats?: (folderId: string) => void;
-  onSelectChat?: (chatId: string, folderId: string) => void;
-  onRemoveChat?: (folderId: string, chatId: string) => void;
+  onEditFolder: (folderId: string) => void;
+  onDeleteFolder: (folderId: string) => void;
+  onAddChats: (folderId: string) => void;
+  onSelectChat: (chatId: string, folderId: string) => void;
+  onRemoveChat: (folderId: string, chatId: string) => void;
+  onUpdateChatTitle?: (
+    folderId: string,
+    chatId: string,
+    newTitle: string
+  ) => void;
+  currentChatId?: string; // Add this prop to track the current chat
 }
 
 // Folder List Component
@@ -355,18 +410,35 @@ export const FolderListComponent: React.FC<FolderListProps> = ({
   onAddChats,
   onSelectChat,
   onRemoveChat,
+  onUpdateChatTitle,
+  currentChatId,
 }) => {
+  const [expandedFolders, setExpandedFolders] = useState<
+    Record<string, boolean>
+  >({});
+
+  const toggleFolderExpansion = (folderId: string) => {
+    setExpandedFolders((prev) => ({
+      ...prev,
+      [folderId]: !prev[folderId],
+    }));
+  };
+
   return (
     <FolderContainer>
       {folders.map((folder) => (
         <FolderComponent
           key={folder.id}
           folder={folder}
+          isExpanded={expandedFolders[folder.id] || false}
+          onToggleExpand={() => toggleFolderExpansion(folder.id)}
           onEditFolder={onEditFolder}
           onDeleteFolder={onDeleteFolder}
           onAddChats={onAddChats}
           onSelectChat={onSelectChat}
           onRemoveChat={onRemoveChat}
+          onUpdateChatTitle={onUpdateChatTitle}
+          currentChatId={currentChatId}
         />
       ))}
     </FolderContainer>

@@ -15,6 +15,7 @@ import {
 } from "../components/sidePanel/FolderFeature";
 import { NewFolderModal } from "../components/sidePanel/NewFolderModal";
 import { FolderSelectionModal } from "../components/sidePanel/FolderSelectionModal";
+import { SidePanel } from "../components/sidePanel/SidePanel";
 
 // Added NewFolderModal component from your interfac
 
@@ -111,16 +112,20 @@ const addFolderButtonToChats = () => {
 
 // App component
 const App: React.FC = () => {
-  const [currentPlatform, setCurrentPlatform] = React.useState<
+  const [platform, setPlatform] = React.useState<
     "perplexity" | "chatgpt" | "deepseek" | null
   >(null);
   const [showQuestions, setShowQuestions] = React.useState(false);
   const [questions, setQuestions] = React.useState<string[]>([]);
+  const [currentChatId, setCurrentChatId] = React.useState<string | null>(null);
+  const [isOpen, setIsOpen] = React.useState(false);
 
   // Add event listener for chat navigation
   React.useEffect(() => {
     const handleChatNavigation = (event: CustomEvent) => {
       const { chatId } = event.detail;
+      console.log(`App: Received chatNavigation event with chatId = ${chatId}`);
+      setCurrentChatId(chatId);
 
       // Find the chat element
       const chatElement = document.querySelector(
@@ -136,22 +141,45 @@ const App: React.FC = () => {
           cancelable: true,
           view: window,
         });
-
-        // Dispatch the click event
         chatElement.dispatchEvent(clickEvent);
-
-        // Remove the data attribute after a short delay
-        setTimeout(() => {
-          chatElement.removeAttribute("data-programmatic-navigation");
-        }, 100);
       }
     };
 
-    // Add event listener for our custom chatNavigation event
     window.addEventListener(
       "chatNavigation",
       handleChatNavigation as EventListener
     );
+
+    // Also check the current URL to set the initial chat ID
+    const extractChatIdFromUrl = () => {
+      const path = window.location.pathname;
+      console.log(`App: Current path = ${path}`);
+
+      // Try different URL patterns
+      const patterns = [
+        /\/c\/([^\/]+)/, // Standard format: /c/chatId
+        /\/chat\/([^\/]+)/, // Alternative format: /chat/chatId
+        /\/([a-f0-9-]{36})/, // UUID format
+      ];
+
+      for (const pattern of patterns) {
+        const match = path.match(pattern);
+        if (match && match[1]) {
+          console.log(
+            `App: Found chatId from URL pattern ${pattern}: ${match[1]}`
+          );
+          return match[1];
+        }
+      }
+
+      return null;
+    };
+
+    const initialChatId = extractChatIdFromUrl();
+    if (initialChatId) {
+      console.log(`App: Setting initial chatId from URL = ${initialChatId}`);
+      setCurrentChatId(initialChatId);
+    }
 
     return () => {
       window.removeEventListener(
@@ -174,7 +202,7 @@ const App: React.FC = () => {
       platform = "deepseek";
     }
 
-    setCurrentPlatform(platform);
+    setPlatform(platform);
 
     if (platform) {
       chrome.runtime.sendMessage({
@@ -289,7 +317,7 @@ const App: React.FC = () => {
   };
   // Add folder button observer effect
   React.useEffect(() => {
-    if (currentPlatform === "chatgpt") {
+    if (platform === "chatgpt") {
       // Function to add folder buttons to the sidenav
       const addFolderButtonsToSidenav = () => {
         const sidebar = document.querySelector('nav[class*="flex-col"]');
@@ -359,11 +387,11 @@ const App: React.FC = () => {
         documentObserver.disconnect();
       };
     }
-  }, [currentPlatform]);
+  }, [platform]);
 
   // Questions tracking effect
   React.useEffect(() => {
-    if (currentPlatform === "chatgpt") {
+    if (platform === "chatgpt") {
       const chatContainer = document.querySelector("main");
       if (!chatContainer) return;
 
@@ -384,26 +412,28 @@ const App: React.FC = () => {
 
       return () => observer.disconnect();
     }
-  }, [currentPlatform]);
+  }, [platform]);
 
   // Don't render if we're not on a supported platform
-  if (!currentPlatform) {
+  if (!platform) {
     return null;
   }
 
   return (
     <>
-      {currentPlatform === "chatgpt" && (
-        <>
-          <QuestionsToggleButton
-            showQuestions={showQuestions}
-            onToggle={() => setShowQuestions(!showQuestions)}
-          />
-          {showQuestions && <QuestionsCard questions={questions} />}
-          {showNewFolderModal && <NewFolderModal />}
-          {showFolderSelectionModal && <FolderSelectionModal />}
-        </>
-      )}
+      <QuestionsToggleButton
+        showQuestions={showQuestions}
+        onToggle={() => setShowQuestions(!showQuestions)}
+      />
+      {showQuestions && <QuestionsCard questions={questions} />}
+      <SidePanel
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        platform={platform}
+        currentChatId={currentChatId || undefined}
+      />
+      {showNewFolderModal && <NewFolderModal />}
+      {showFolderSelectionModal && <FolderSelectionModal />}
     </>
   );
 };

@@ -288,11 +288,31 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
     const { selectedFolder, selectedChats } = get();
     if (!selectedFolder) return;
 
+    // Filter out chats that already exist in the folder
+    const existingChatIds = new Set(
+      selectedFolder.conversations.map((conv) => conv.id)
+    );
+    const newChats = selectedChats.filter(
+      (chatId) => !existingChatIds.has(chatId)
+    );
+
+    if (newChats.length === 0) {
+      console.log(
+        "No new chats to add to folder - all selected chats already exist in the folder"
+      );
+      set({ selectedChats: [], showAddChatsModal: false });
+      return;
+    }
+
+    console.log(
+      `Adding ${newChats.length} new chats to folder ${selectedFolder.id}`
+    );
+
     const updatedFolder: Folder = {
       ...selectedFolder,
       conversations: [
         ...selectedFolder.conversations,
-        ...selectedChats.map((chatId) => ({
+        ...newChats.map((chatId) => ({
           id: chatId,
           title: `Chat ${chatId}`,
           url: `/c/${chatId}`,
@@ -313,20 +333,35 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
 
     const updatedFolders = folders.map((folder) => {
       if (selectedChatForFolders.folderIds?.includes(folder.id)) {
-        return {
-          ...folder,
-          conversations: [
-            ...folder.conversations,
-            {
-              id: selectedChatForFolders.id,
-              title: selectedChatForFolders.title,
-              url: selectedChatForFolders.url,
-              preview: selectedChatForFolders.preview,
-              platform: selectedChatForFolders.platform,
-              timestamp: selectedChatForFolders.timestamp,
-            },
-          ],
-        };
+        // Check if the chat already exists in this folder
+        const chatExists = folder.conversations.some(
+          (conv) => conv.id === selectedChatForFolders.id
+        );
+
+        // Only add the chat if it doesn't already exist in the folder
+        if (!chatExists) {
+          console.log(
+            `Adding chat ${selectedChatForFolders.id} to folder ${folder.id}`
+          );
+          return {
+            ...folder,
+            conversations: [
+              ...folder.conversations,
+              {
+                id: selectedChatForFolders.id,
+                title: selectedChatForFolders.title,
+                url: selectedChatForFolders.url,
+                preview: selectedChatForFolders.preview,
+                platform: selectedChatForFolders.platform,
+                timestamp: selectedChatForFolders.timestamp,
+              },
+            ],
+          };
+        } else {
+          console.log(
+            `Chat ${selectedChatForFolders.id} already exists in folder ${folder.id}`
+          );
+        }
       }
       return folder;
     });

@@ -59244,10 +59244,20 @@ const ChatItem = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].div `
   font-size: 14px;
   border-radius: 6px;
   cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease-in-out;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.07);
   }
+
+  ${({ isActive }) => isActive &&
+    `
+    background-color: rgba(16, 163, 127, 0.15);
+    border-left: 3px solid #10a37f;
+    font-weight: 500;
+    color: #ffffff;
+  `}
 `;
 const ChatTitle = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].span `
   flex: 1;
@@ -59300,11 +59310,18 @@ const FolderDropdown = ({ onEdit, onDelete, onAddChats, }) => {
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(Dropdown, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: onEdit, children: "Edit folder" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: onAddChats, children: "Add chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: onDelete, children: "Delete folder" })] }));
 };
 // Individual Folder Component
-const FolderComponent = ({ folder, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, }) => {
-    const [isExpanded, setIsExpanded] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, currentChatId, }) => {
     const [showDropdown, setShowDropdown] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+    const [activeChatId, setActiveChatId] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(currentChatId);
+    // Update activeChatId when currentChatId changes
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        console.log(`FolderComponent: currentChatId changed to ${currentChatId}`);
+        setActiveChatId(currentChatId);
+    }, [currentChatId]);
+    // Add debug logs
+    console.log(`FolderComponent for folder ${folder.id}: currentChatId = ${currentChatId}, activeChatId = ${activeChatId}`);
     const handleToggleExpand = () => {
-        setIsExpanded(!isExpanded);
+        onToggleExpand();
     };
     const handleToggleDropdown = (e) => {
         e.stopPropagation();
@@ -59312,18 +59329,22 @@ const FolderComponent = ({ folder, onEditFolder, onDeleteFolder, onAddChats, onS
     };
     const handleEdit = () => {
         setShowDropdown(false);
-        onEditFolder === null || onEditFolder === void 0 ? void 0 : onEditFolder(folder.id);
+        onEditFolder(folder.id);
     };
     const handleDelete = () => {
         setShowDropdown(false);
-        onDeleteFolder === null || onDeleteFolder === void 0 ? void 0 : onDeleteFolder(folder.id);
+        onDeleteFolder(folder.id);
     };
     const handleAddChats = () => {
         setShowDropdown(false);
-        onAddChats === null || onAddChats === void 0 ? void 0 : onAddChats(folder.id);
+        onAddChats(folder.id);
     };
     const handleChatClick = (chatId) => {
-        onSelectChat === null || onSelectChat === void 0 ? void 0 : onSelectChat(chatId, folder.id);
+        console.log(`FolderComponent: Chat clicked - ${chatId}`);
+        // Update the active chat ID immediately for better UX
+        setActiveChatId(chatId);
+        // Then call the parent handler
+        onSelectChat(chatId, folder.id);
     };
     const handleRemoveChat = (e, chatId) => {
         e.stopPropagation();
@@ -59336,7 +59357,12 @@ const FolderComponent = ({ folder, onEditFolder, onDeleteFolder, onAddChats, onS
             console.error("onRemoveChat function is not defined");
         }
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCard, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderHeader, { onClick: handleToggleExpand, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderTitle, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderEmoji, { children: folder.emoji }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderName, { children: folder.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCount, { children: [folder.conversations.length, " chats saved"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderActions, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(MoreButton, { onClick: handleToggleDropdown, children: "\u00B7\u00B7\u00B7" }), showDropdown && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderDropdown, { folder: folder, onEdit: handleEdit, onDelete: handleDelete, onAddChats: handleAddChats }))] })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatsContainer, { children: folder.conversations.map((chat) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(ChatItem, { onClick: () => handleChatClick(chat.id), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatTitle, { children: chat.title }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(RemoveButton, { onClick: (e) => handleRemoveChat(e, chat.id), children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M12 4L4 12M4 4L12 12", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }) }) })] }, chat.id))) }))] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCard, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderHeader, { onClick: handleToggleExpand, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderTitle, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderEmoji, { children: folder.emoji }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderName, { children: folder.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCount, { children: [folder.conversations.length, " chats saved"] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderActions, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(MoreButton, { onClick: handleToggleDropdown, children: "\u00B7\u00B7\u00B7" }), showDropdown && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderDropdown, { folder: folder, onEdit: handleEdit, onDelete: handleDelete, onAddChats: handleAddChats }))] })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatsContainer, { children: folder.conversations.map((chat) => {
+                    // Add debug logs for each chat
+                    const isActive = activeChatId === chat.id;
+                    console.log(`Chat ${chat.id}: isActive = ${isActive}`);
+                    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(ChatItem, { onClick: () => handleChatClick(chat.id), isActive: isActive, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatTitle, { children: chat.title }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(RemoveButton, { onClick: (e) => handleRemoveChat(e, chat.id), children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M12 4L4 12M4 4L12 12", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }) }) })] }, chat.id));
+                }) }))] }));
 };
 // New Folder Button Component
 const NewFolderButtonComponent = ({ onClick, label = "New Folder", }) => {
@@ -59348,8 +59374,12 @@ const NewFolderButtonComponent = ({ onClick, label = "New Folder", }) => {
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(NewFolderButton, { onClick: handleClick, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderIcon, { children: "+" }), label] }));
 };
 // Folder List Component
-const FolderListComponent = ({ folders, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, }) => {
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderContainer, { children: folders.map((folder) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderComponent, { folder: folder, onEditFolder: onEditFolder, onDeleteFolder: onDeleteFolder, onAddChats: onAddChats, onSelectChat: onSelectChat, onRemoveChat: onRemoveChat }, folder.id))) }));
+const FolderListComponent = ({ folders, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, currentChatId, }) => {
+    const [expandedFolders, setExpandedFolders] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)({});
+    const toggleFolderExpansion = (folderId) => {
+        setExpandedFolders((prev) => (Object.assign(Object.assign({}, prev), { [folderId]: !prev[folderId] })));
+    };
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderContainer, { children: folders.map((folder) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderComponent, { folder: folder, isExpanded: expandedFolders[folder.id] || false, onToggleExpand: () => toggleFolderExpansion(folder.id), onEditFolder: onEditFolder, onDeleteFolder: onDeleteFolder, onAddChats: onAddChats, onSelectChat: onSelectChat, onRemoveChat: onRemoveChat, onUpdateChatTitle: onUpdateChatTitle, currentChatId: currentChatId }, folder.id))) }));
 };
 
 
@@ -59575,6 +59605,120 @@ const NewFolderModal = ({ onClose }) => {
 
 /***/ }),
 
+/***/ "./src/components/sidePanel/SidePanel.tsx":
+/*!************************************************!*\
+  !*** ./src/components/sidePanel/SidePanel.tsx ***!
+  \************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SidePanel: () => (/* binding */ SidePanel)
+/* harmony export */ });
+/* harmony import */ var react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! react/jsx-runtime */ "./node_modules/react/jsx-runtime.js");
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! react */ "./node_modules/react/index.js");
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(react__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../store/sidePanelStore */ "./src/store/sidePanelStore.ts");
+/* harmony import */ var _FolderFeature__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./FolderFeature */ "./src/components/sidePanel/FolderFeature.tsx");
+/* harmony import */ var _styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../styles/sidePanel */ "./src/styles/sidePanel.ts");
+/* harmony import */ var _NewFolderModal__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./NewFolderModal */ "./src/components/sidePanel/NewFolderModal.tsx");
+
+
+
+
+
+
+const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
+    // Add debug logs
+    console.log(`SidePanel: received currentChatId prop = ${currentChatId}`);
+    const { folders, selectedFolder, isOpen: isSidePanelOpen, setIsOpen, setSelectedFolder, setShowNewFolderModal, setShowFolderSelectionModal, setShowAddChatsModal, setSelectedChats, setSearchQuery, setEditingFolderId, toggleFolderExpansion, handleFolderOptions, handleEditFolder: storeHandleEditFolder, handleDeleteFolder: storeHandleDeleteFolder, openAddChatsModal, removeChatFromFolder, getFolderConversations, setSelectedChatForFolders, setEditingFolderName, setEditingFolderEmoji, handleCancelNewFolder, handleCancelEdit, } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore)();
+    // State to track the current chat ID
+    const [localCurrentChatId, setLocalCurrentChatId] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(null);
+    // Use the prop if provided, otherwise use the local state
+    const effectiveCurrentChatId = currentChatId || localCurrentChatId;
+    // Add debug logs
+    console.log(`SidePanel: localCurrentChatId = ${localCurrentChatId}`);
+    console.log(`SidePanel: effectiveCurrentChatId = ${effectiveCurrentChatId}`);
+    // Add event listener for chat navigation
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        const handleChatNavigation = (event) => {
+            const { chatId } = event.detail;
+            console.log(`SidePanel: Received chatNavigation event with chatId = ${chatId}`);
+            setLocalCurrentChatId(chatId);
+        };
+        window.addEventListener("chatNavigation", handleChatNavigation);
+        // Also check the current URL to set the initial chat ID
+        const extractChatIdFromUrl = () => {
+            const path = window.location.pathname;
+            console.log(`SidePanel: Current path = ${path}`);
+            // Try different URL patterns
+            const patterns = [
+                /\/c\/([^\/]+)/, // Standard format: /c/chatId
+                /\/chat\/([^\/]+)/, // Alternative format: /chat/chatId
+                /\/([a-f0-9-]{36})/, // UUID format
+            ];
+            for (const pattern of patterns) {
+                const match = path.match(pattern);
+                if (match && match[1]) {
+                    console.log(`SidePanel: Found chatId from URL pattern ${pattern}: ${match[1]}`);
+                    return match[1];
+                }
+            }
+            return null;
+        };
+        // Initialize currentChatId from URL on component mount
+        const initialChatId = extractChatIdFromUrl();
+        if (initialChatId) {
+            console.log(`SidePanel: Setting initial chatId from URL = ${initialChatId}`);
+            setLocalCurrentChatId(initialChatId);
+        }
+        return () => {
+            window.removeEventListener("chatNavigation", handleChatNavigation);
+        };
+    }, []);
+    // Function to handle chat selection
+    const handleSelectChat = (chatId, folderId) => {
+        const folder = folders.find((f) => f.id === folderId);
+        if (folder) {
+            const chat = folder.conversations.find((c) => c.id === chatId);
+            if (chat) {
+                setSelectedChatForFolders(chat);
+                setLocalCurrentChatId(chatId);
+            }
+        }
+    };
+    // Function to handle editing a folder
+    const handleEditFolder = (folderId) => {
+        const folder = folders.find((f) => f.id === folderId);
+        if (folder) {
+            storeHandleEditFolder(folder);
+        }
+    };
+    // Function to handle deleting a folder
+    const handleDeleteFolder = (folderId) => {
+        // The store's handleDeleteFolder only takes a folderId parameter
+        storeHandleDeleteFolder(folderId);
+    };
+    // Function to handle adding chats to a folder
+    const handleAddChats = (folderId) => {
+        // Create a synthetic event object
+        const syntheticEvent = {
+            stopPropagation: () => { },
+            preventDefault: () => { },
+        };
+        openAddChatsModal(folderId, syntheticEvent);
+    };
+    // Function to handle removing a chat from a folder
+    const handleRemoveChat = (folderId, chatId) => {
+        removeChatFromFolder(folderId, chatId);
+    };
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.SidePanelContainer, { isOpen: isOpen, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.Header, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.Title, { children: "Folders" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.NewFolderButton, { onClick: () => setShowNewFolderModal(true), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "text-lg", children: "\uD83D\uDCC1" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "New Folder" })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.FolderList, { children: folders.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_FolderFeature__WEBPACK_IMPORTED_MODULE_3__.FolderListComponent, { folders: folders, onEditFolder: handleEditFolder, onDeleteFolder: handleDeleteFolder, onAddChats: handleAddChats, onSelectChat: handleSelectChat, onRemoveChat: handleRemoveChat, currentChatId: effectiveCurrentChatId || undefined })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.EmptyState, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "text-lg", children: "\uD83D\uDCC1" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "No folders yet" })] })) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_NewFolderModal__WEBPACK_IMPORTED_MODULE_5__.NewFolderModal, {})] }));
+};
+
+
+/***/ }),
+
 /***/ "./src/constants/emojis.ts":
 /*!*********************************!*\
   !*** ./src/constants/emojis.ts ***!
@@ -59765,9 +59909,18 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
         const { selectedFolder, selectedChats } = get();
         if (!selectedFolder)
             return;
+        // Filter out chats that already exist in the folder
+        const existingChatIds = new Set(selectedFolder.conversations.map((conv) => conv.id));
+        const newChats = selectedChats.filter((chatId) => !existingChatIds.has(chatId));
+        if (newChats.length === 0) {
+            console.log("No new chats to add to folder - all selected chats already exist in the folder");
+            set({ selectedChats: [], showAddChatsModal: false });
+            return;
+        }
+        console.log(`Adding ${newChats.length} new chats to folder ${selectedFolder.id}`);
         const updatedFolder = Object.assign(Object.assign({}, selectedFolder), { conversations: [
                 ...selectedFolder.conversations,
-                ...selectedChats.map((chatId) => ({
+                ...newChats.map((chatId) => ({
                     id: chatId,
                     title: `Chat ${chatId}`,
                     url: `/c/${chatId}`,
@@ -59786,17 +59939,26 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
         const updatedFolders = folders.map((folder) => {
             var _a;
             if ((_a = selectedChatForFolders.folderIds) === null || _a === void 0 ? void 0 : _a.includes(folder.id)) {
-                return Object.assign(Object.assign({}, folder), { conversations: [
-                        ...folder.conversations,
-                        {
-                            id: selectedChatForFolders.id,
-                            title: selectedChatForFolders.title,
-                            url: selectedChatForFolders.url,
-                            preview: selectedChatForFolders.preview,
-                            platform: selectedChatForFolders.platform,
-                            timestamp: selectedChatForFolders.timestamp,
-                        },
-                    ] });
+                // Check if the chat already exists in this folder
+                const chatExists = folder.conversations.some((conv) => conv.id === selectedChatForFolders.id);
+                // Only add the chat if it doesn't already exist in the folder
+                if (!chatExists) {
+                    console.log(`Adding chat ${selectedChatForFolders.id} to folder ${folder.id}`);
+                    return Object.assign(Object.assign({}, folder), { conversations: [
+                            ...folder.conversations,
+                            {
+                                id: selectedChatForFolders.id,
+                                title: selectedChatForFolders.title,
+                                url: selectedChatForFolders.url,
+                                preview: selectedChatForFolders.preview,
+                                platform: selectedChatForFolders.platform,
+                                timestamp: selectedChatForFolders.timestamp,
+                            },
+                        ] });
+                }
+                else {
+                    console.log(`Chat ${selectedChatForFolders.id} already exists in folder ${folder.id}`);
+                }
             }
             return folder;
         });
@@ -60355,6 +60517,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../components/sidePanel/FolderFeature */ "./src/components/sidePanel/FolderFeature.tsx");
 /* harmony import */ var _components_sidePanel_NewFolderModal__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../components/sidePanel/NewFolderModal */ "./src/components/sidePanel/NewFolderModal.tsx");
 /* harmony import */ var _components_sidePanel_FolderSelectionModal__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../components/sidePanel/FolderSelectionModal */ "./src/components/sidePanel/FolderSelectionModal.tsx");
+/* harmony import */ var _components_sidePanel_SidePanel__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../components/sidePanel/SidePanel */ "./src/components/sidePanel/SidePanel.tsx");
+
 
 
 
@@ -60447,13 +60611,17 @@ const addFolderButtonToChats = () => {
 // Function to insert new folder button above target element
 // App component
 const App = () => {
-    const [currentPlatform, setCurrentPlatform] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(null);
+    const [platform, setPlatform] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(null);
     const [showQuestions, setShowQuestions] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
     const [questions, setQuestions] = react__WEBPACK_IMPORTED_MODULE_1___default().useState([]);
+    const [currentChatId, setCurrentChatId] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(null);
+    const [isOpen, setIsOpen] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
     // Add event listener for chat navigation
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
         const handleChatNavigation = (event) => {
             const { chatId } = event.detail;
+            console.log(`App: Received chatNavigation event with chatId = ${chatId}`);
+            setCurrentChatId(chatId);
             // Find the chat element
             const chatElement = document.querySelector(`a[href="/c/${chatId}"]`);
             if (chatElement) {
@@ -60465,16 +60633,34 @@ const App = () => {
                     cancelable: true,
                     view: window,
                 });
-                // Dispatch the click event
                 chatElement.dispatchEvent(clickEvent);
-                // Remove the data attribute after a short delay
-                setTimeout(() => {
-                    chatElement.removeAttribute("data-programmatic-navigation");
-                }, 100);
             }
         };
-        // Add event listener for our custom chatNavigation event
         window.addEventListener("chatNavigation", handleChatNavigation);
+        // Also check the current URL to set the initial chat ID
+        const extractChatIdFromUrl = () => {
+            const path = window.location.pathname;
+            console.log(`App: Current path = ${path}`);
+            // Try different URL patterns
+            const patterns = [
+                /\/c\/([^\/]+)/, // Standard format: /c/chatId
+                /\/chat\/([^\/]+)/, // Alternative format: /chat/chatId
+                /\/([a-f0-9-]{36})/, // UUID format
+            ];
+            for (const pattern of patterns) {
+                const match = path.match(pattern);
+                if (match && match[1]) {
+                    console.log(`App: Found chatId from URL pattern ${pattern}: ${match[1]}`);
+                    return match[1];
+                }
+            }
+            return null;
+        };
+        const initialChatId = extractChatIdFromUrl();
+        if (initialChatId) {
+            console.log(`App: Setting initial chatId from URL = ${initialChatId}`);
+            setCurrentChatId(initialChatId);
+        }
         return () => {
             window.removeEventListener("chatNavigation", handleChatNavigation);
         };
@@ -60492,7 +60678,7 @@ const App = () => {
         else if (hostname.includes(_utils_constants__WEBPACK_IMPORTED_MODULE_3__.DEEPSEEK_DOMAIN)) {
             platform = "deepseek";
         }
-        setCurrentPlatform(platform);
+        setPlatform(platform);
         if (platform) {
             chrome.runtime.sendMessage({
                 action: "aiPlatformDetected",
@@ -60551,7 +60737,7 @@ const App = () => {
     };
     // Add folder button observer effect
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
-        if (currentPlatform === "chatgpt") {
+        if (platform === "chatgpt") {
             // Function to add folder buttons to the sidenav
             const addFolderButtonsToSidenav = () => {
                 const sidebar = document.querySelector('nav[class*="flex-col"]');
@@ -60609,10 +60795,10 @@ const App = () => {
                 documentObserver.disconnect();
             };
         }
-    }, [currentPlatform]);
+    }, [platform]);
     // Questions tracking effect
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
-        if (currentPlatform === "chatgpt") {
+        if (platform === "chatgpt") {
             const chatContainer = document.querySelector("main");
             if (!chatContainer)
                 return;
@@ -60627,12 +60813,12 @@ const App = () => {
             });
             return () => observer.disconnect();
         }
-    }, [currentPlatform]);
+    }, [platform]);
     // Don't render if we're not on a supported platform
-    if (!currentPlatform) {
+    if (!platform) {
         return null;
     }
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: currentPlatform === "chatgpt" && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsToggleButton__WEBPACK_IMPORTED_MODULE_6__.QuestionsToggleButton, { showQuestions: showQuestions, onToggle: () => setShowQuestions(!showQuestions) }), showQuestions && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsCard__WEBPACK_IMPORTED_MODULE_5__.QuestionsCard, { questions: questions }), showNewFolderModal && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_NewFolderModal__WEBPACK_IMPORTED_MODULE_8__.NewFolderModal, {}), showFolderSelectionModal && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderSelectionModal__WEBPACK_IMPORTED_MODULE_9__.FolderSelectionModal, {})] })) }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.Fragment, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsToggleButton__WEBPACK_IMPORTED_MODULE_6__.QuestionsToggleButton, { showQuestions: showQuestions, onToggle: () => setShowQuestions(!showQuestions) }), showQuestions && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsCard__WEBPACK_IMPORTED_MODULE_5__.QuestionsCard, { questions: questions }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_SidePanel__WEBPACK_IMPORTED_MODULE_10__.SidePanel, { isOpen: isOpen, onClose: () => setIsOpen(false), platform: platform, currentChatId: currentChatId || undefined }), showNewFolderModal && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_NewFolderModal__WEBPACK_IMPORTED_MODULE_8__.NewFolderModal, {}), showFolderSelectionModal && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderSelectionModal__WEBPACK_IMPORTED_MODULE_9__.FolderSelectionModal, {})] }));
 };
 // Create a container for our React app
 const createAppContainer = () => {
