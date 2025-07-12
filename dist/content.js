@@ -67620,14 +67620,6 @@ const FolderDropdown = ({ onEdit, onDelete, onAddChats, }) => {
 // Individual Folder Component
 const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, currentChatId, }) => {
     const [showDropdown, setShowDropdown] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
-    const [activeChatId, setActiveChatId] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(currentChatId);
-    // Update activeChatId when currentChatId changes
-    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
-        console.log(`FolderComponent: currentChatId changed to ${currentChatId}`);
-        setActiveChatId(currentChatId);
-    }, [currentChatId]);
-    // Add debug logs
-    console.log(`FolderComponent for folder ${folder.id}: currentChatId = ${currentChatId}, activeChatId = ${activeChatId}`);
     const handleToggleExpand = () => {
         onToggleExpand();
     };
@@ -67648,15 +67640,11 @@ const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onD
         onAddChats(folder.id);
     };
     const handleChatClick = (chatId) => {
-        console.log(`FolderComponent: Chat clicked - ${chatId}`);
-        // Update the active chat ID immediately for better UX
-        setActiveChatId(chatId);
-        // Then call the parent handler
+        // Call the parent handler to update the global currentChatId
         onSelectChat(chatId, folder.id);
     };
     const handleRemoveChat = (e, chatId) => {
         e.stopPropagation();
-        console.log(`FolderComponent: Removing chat ${chatId} from folder ${folder.id}`);
         // Make sure we're passing the folder ID and chat ID correctly
         if (onRemoveChat) {
             onRemoveChat(folder.id, chatId);
@@ -67666,10 +67654,12 @@ const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onD
         }
     };
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCard, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderHeader, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderTitle, { onClick: handleToggleExpand, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderEmoji, { children: folder.emoji }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderName, { children: folder.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCount, { children: ["#", folder.conversations.length] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderActions, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { onClick: handleEdit, children: "\u270E" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { onClick: handleDelete, children: "\uD83D\uDDD1\uFE0F" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { onClick: handleAddChats, children: "+" })] })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatsContainer, { children: folder.conversations.map((chat) => {
-                    // Add debug logs for each chat
-                    const isActive = activeChatId === chat.id;
-                    console.log(`Chat ${chat.id}: isActive = ${isActive}`);
-                    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(ChatItem, { onClick: () => handleChatClick(chat.id), isActive: isActive, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatTitle, { children: chat.title }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(RemoveButton, { onClick: (e) => handleRemoveChat(e, chat.id), children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M12 4L4 12M4 4L12 12", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }) }) })] }, chat.id));
+                    // Ensure currentChatId is a valid string for comparison
+                    // Only show chat as active if currentChatId is a valid string and matches
+                    const isActive = currentChatId === chat.id;
+                    // Temporary debug log
+                    console.log(`Folder ${folder.name}: Chat ${chat.id} isActive = ${isActive}, currentChatId = ${currentChatId}`);
+                    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(ChatItem, { onClick: () => handleChatClick(chat.id), isActive: isActive, "data-active": isActive, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatTitle, { children: chat.title }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(RemoveButton, { onClick: (e) => handleRemoveChat(e, chat.id), children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M12 4L4 12M4 4L12 12", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }) }) })] }, chat.id));
                 }) }))] }));
 };
 // New Folder Button Component
@@ -67683,11 +67673,29 @@ const NewFolderButtonComponent = ({ onClick, label = "New Folder", }) => {
 };
 // Folder List Component
 const FolderListComponent = ({ folders, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, currentChatId, }) => {
-    const [expandedFolders, setExpandedFolders] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)({});
-    const toggleFolderExpansion = (folderId) => {
-        setExpandedFolders((prev) => (Object.assign(Object.assign({}, prev), { [folderId]: !prev[folderId] })));
-    };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderContainer, { children: folders.map((folder) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderComponent, { folder: folder, isExpanded: expandedFolders[folder.id] || false, onToggleExpand: () => toggleFolderExpansion(folder.id), onEditFolder: onEditFolder, onDeleteFolder: onDeleteFolder, onAddChats: onAddChats, onSelectChat: onSelectChat, onRemoveChat: onRemoveChat, onUpdateChatTitle: onUpdateChatTitle, currentChatId: currentChatId }, folder.id))) }));
+    // Use expandedFolders from the store instead of local state
+    const { expandedFolders, toggleFolderExpansion } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore)();
+    // Debug log to check what currentChatId is received
+    // console.log(
+    //   `FolderListComponent Debug: received currentChatId = ${currentChatId}`
+    // );
+    // Use a ref to maintain the last valid currentChatId
+    const lastValidChatIdRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(undefined);
+    // Update the ref when we receive a valid currentChatId
+    if (typeof currentChatId === "string" && currentChatId.trim() !== "") {
+        lastValidChatIdRef.current = currentChatId;
+    }
+    // Use the last valid chat ID or the current one if it's valid
+    const safeCurrentChatId = typeof currentChatId === "string" && currentChatId.trim() !== ""
+        ? currentChatId
+        : lastValidChatIdRef.current;
+    // Add useEffect to track currentChatId changes
+    // React.useEffect(() => {
+    //   console.log(
+    //     `FolderListComponent: currentChatId changed to ${currentChatId}`
+    //   );
+    // }, [currentChatId]);
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderContainer, { children: folders.map((folder) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderComponent, { folder: folder, isExpanded: expandedFolders[folder.id] || false, onToggleExpand: () => toggleFolderExpansion(folder.id), onEditFolder: onEditFolder, onDeleteFolder: onDeleteFolder, onAddChats: onAddChats, onSelectChat: onSelectChat, onRemoveChat: onRemoveChat, onUpdateChatTitle: onUpdateChatTitle, currentChatId: safeCurrentChatId }, folder.id))) }));
 };
 
 
@@ -67940,28 +67948,31 @@ __webpack_require__.r(__webpack_exports__);
 
 
 const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
-    // Add debug logs
-    console.log(`SidePanel: received currentChatId prop = ${currentChatId}`);
     const { folders, selectedFolder, isOpen: isSidePanelOpen, setIsOpen, setSelectedFolder, setShowNewFolderModal, setShowFolderSelectionModal, setShowAddChatsModal, setSelectedChats, setSearchQuery, setEditingFolderId, toggleFolderExpansion, handleFolderOptions, handleEditFolder: storeHandleEditFolder, handleDeleteFolder: storeHandleDeleteFolder, openAddChatsModal, removeChatFromFolder, getFolderConversations, setSelectedChatForFolders, setEditingFolderName, setEditingFolderEmoji, handleCancelNewFolder, handleCancelEdit, } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore)();
     // State to track the current chat ID
     const [localCurrentChatId, setLocalCurrentChatId] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(null);
     // Use the prop if provided, otherwise use the local state
     const effectiveCurrentChatId = currentChatId || localCurrentChatId;
-    // Add debug logs
-    console.log(`SidePanel: localCurrentChatId = ${localCurrentChatId}`);
-    console.log(`SidePanel: effectiveCurrentChatId = ${effectiveCurrentChatId}`);
+    // Ensure we always pass a valid string or undefined
+    // If we have a currentChatId prop, always use it
+    // If we don't have a currentChatId prop but have a localCurrentChatId, use that
+    // Only set to undefined if both are falsy
+    const finalCurrentChatId = typeof currentChatId === "string" && currentChatId.trim() !== ""
+        ? currentChatId
+        : typeof localCurrentChatId === "string" &&
+            localCurrentChatId.trim() !== ""
+            ? localCurrentChatId
+            : undefined;
     // Add event listener for chat navigation
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
         const handleChatNavigation = (event) => {
-            const { chatId } = event.detail;
-            console.log(`SidePanel: Received chatNavigation event with chatId = ${chatId}`);
+            const { chatId, folderId } = event.detail;
             setLocalCurrentChatId(chatId);
         };
         window.addEventListener("chatNavigation", handleChatNavigation);
         // Also check the current URL to set the initial chat ID
         const extractChatIdFromUrl = () => {
             const path = window.location.pathname;
-            console.log(`SidePanel: Current path = ${path}`);
             // Try different URL patterns
             const patterns = [
                 /\/c\/([^\/]+)/, // Standard format: /c/chatId
@@ -67971,7 +67982,6 @@ const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
             for (const pattern of patterns) {
                 const match = path.match(pattern);
                 if (match && match[1]) {
-                    console.log(`SidePanel: Found chatId from URL pattern ${pattern}: ${match[1]}`);
                     return match[1];
                 }
             }
@@ -67980,7 +67990,6 @@ const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
         // Initialize currentChatId from URL on component mount
         const initialChatId = extractChatIdFromUrl();
         if (initialChatId) {
-            console.log(`SidePanel: Setting initial chatId from URL = ${initialChatId}`);
             setLocalCurrentChatId(initialChatId);
         }
         return () => {
@@ -68012,7 +68021,6 @@ const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
     };
     // Function to handle adding chats to a folder
     const handleAddChats = (folderId) => {
-        console.log(`SidePanel: handleAddChats called with folderId = ${folderId}`);
         // Create a synthetic event object
         const syntheticEvent = {
             stopPropagation: () => { },
@@ -68021,7 +68029,6 @@ const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
         // Find the folder
         const folder = folders.find((f) => f.id === folderId);
         if (folder) {
-            console.log(`SidePanel: Found folder ${folder.name} with ID ${folder.id}`);
             openAddChatsModal(folderId, syntheticEvent);
         }
         else {
@@ -68032,7 +68039,7 @@ const SidePanel = ({ isOpen, onClose, platform, currentChatId, }) => {
     const handleRemoveChat = (folderId, chatId) => {
         removeChatFromFolder(folderId, chatId);
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.SidePanelContainer, { isOpen: isOpen, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.Header, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.Title, { children: "Folders" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.NewFolderButton, { onClick: () => setShowNewFolderModal(true), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "text-lg", children: "\uD83D\uDCC1" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "New Folder" })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.FolderList, { children: folders.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_FolderFeature__WEBPACK_IMPORTED_MODULE_3__.FolderListComponent, { folders: folders, onEditFolder: handleEditFolder, onDeleteFolder: handleDeleteFolder, onAddChats: handleAddChats, onSelectChat: handleSelectChat, onRemoveChat: handleRemoveChat, currentChatId: effectiveCurrentChatId || undefined })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.EmptyState, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "text-lg", children: "\uD83D\uDCC1" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "No folders yet" })] })) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_NewFolderModal__WEBPACK_IMPORTED_MODULE_5__.NewFolderModal, {}), selectedFolder && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_AddChatsModal__WEBPACK_IMPORTED_MODULE_6__.AddChatsModal, { folder: selectedFolder })] }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.SidePanelContainer, { isOpen: isOpen, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.Header, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.Title, { children: "Folders" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.NewFolderButton, { onClick: () => setShowNewFolderModal(true), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "text-lg", children: "\uD83D\uDCC1" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "New Folder" })] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.FolderList, { children: folders.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_FolderFeature__WEBPACK_IMPORTED_MODULE_3__.FolderListComponent, { folders: folders, onEditFolder: handleEditFolder, onDeleteFolder: handleDeleteFolder, onAddChats: handleAddChats, onSelectChat: handleSelectChat, onRemoveChat: handleRemoveChat, currentChatId: finalCurrentChatId })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_styles_sidePanel__WEBPACK_IMPORTED_MODULE_4__.EmptyState, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { className: "text-lg", children: "\uD83D\uDCC1" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "No folders yet" })] })) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_NewFolderModal__WEBPACK_IMPORTED_MODULE_5__.NewFolderModal, {}), selectedFolder && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_AddChatsModal__WEBPACK_IMPORTED_MODULE_6__.AddChatsModal, { folder: selectedFolder })] }));
 };
 
 
@@ -68844,6 +68851,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _components_sidePanel_FolderSelectionModal__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../components/sidePanel/FolderSelectionModal */ "./src/components/sidePanel/FolderSelectionModal.tsx");
 /* harmony import */ var _components_sidePanel_SidePanel__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../components/sidePanel/SidePanel */ "./src/components/sidePanel/SidePanel.tsx");
 /* harmony import */ var _components_sidePanel_AddChatsModal__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../components/sidePanel/AddChatsModal */ "./src/components/sidePanel/AddChatsModal.tsx");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 
 
 
@@ -68923,11 +68939,21 @@ const addFolderButtonToChats = () => {
                     e.stopPropagation();
                     const chatId = (_a = chatItem.getAttribute("href")) === null || _a === void 0 ? void 0 : _a.split("/c/")[1];
                     if (chatId) {
+                        // Find which folder contains this chat
+                        const folders = _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().folders;
+                        let folderId = null;
+                        for (const folder of folders) {
+                            const chatExists = folder.conversations.some((conv) => conv.id === chatId);
+                            if (chatExists) {
+                                folderId = folder.id;
+                                break;
+                            }
+                        }
                         // Use history API to navigate without page reload
                         window.history.pushState({}, "", `/c/${chatId}`);
                         // Dispatch a custom event to notify that navigation has occurred
                         window.dispatchEvent(new CustomEvent("chatNavigation", {
-                            detail: { chatId },
+                            detail: { chatId, folderId },
                         }));
                     }
                 }
@@ -68939,16 +68965,19 @@ const addFolderButtonToChats = () => {
 // Function to add download button to chat answers
 const addDownloadButtonToAnswers = () => {
     const chatContainer = document.querySelector("main");
-    if (!chatContainer)
+    if (!chatContainer) {
+        console.log("addDownloadButtonToAnswers: No main container found");
         return;
+    }
     // Find all edit buttons in the chat container
     const editButtons = chatContainer.querySelectorAll('button[aria-label="Edit in canvas"]');
-    editButtons.forEach((editButton) => {
+    editButtons.forEach((editButton, index) => {
         var _a;
         // Check if download button already exists for this edit button
         const existingDownloadButton = (_a = editButton.parentElement) === null || _a === void 0 ? void 0 : _a.querySelector(".download-answer-button");
-        if (existingDownloadButton)
+        if (existingDownloadButton) {
             return;
+        }
         // Create download button
         const downloadButton = document.createElement("button");
         downloadButton.className =
@@ -68964,32 +68993,233 @@ const addDownloadButtonToAnswers = () => {
       </span>
     `;
         // Add click handler for download functionality
-        downloadButton.addEventListener("click", (e) => {
-            var _a, _b;
+        downloadButton.addEventListener("click", (e) => __awaiter(void 0, void 0, void 0, function* () {
             e.preventDefault();
             e.stopPropagation();
-            // Find the answer text (usually in a markdown div near the edit button)
-            const answerContainer = editButton.closest('[data-message-author-role="assistant"]') ||
-                editButton.closest(".markdown") ||
-                ((_b = (_a = editButton.parentElement) === null || _a === void 0 ? void 0 : _a.parentElement) === null || _b === void 0 ? void 0 : _b.querySelector(".markdown"));
-            if (answerContainer) {
-                const answerText = answerContainer.textContent || "";
-                // Create and download the file
-                const blob = new Blob([answerText], { type: "text/plain" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `chatgpt-answer-${Date.now()}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+            // Debug: Log the edit button and its parent structure
+            // Find the answer content using multiple approaches
+            let assistantMessage = null;
+            let answerContainer = null;
+            // Approach 1: Look for assistant message using data attribute
+            assistantMessage = editButton.closest('[data-message-author-role="assistant"]');
+            // Approach 2: If not found, look for any parent with assistant role
+            if (!assistantMessage) {
+                assistantMessage = editButton.closest('[role="assistant"]');
             }
-        });
+            // Approach 3: Look for parent with specific classes that indicate assistant message
+            if (!assistantMessage) {
+                assistantMessage =
+                    editButton.closest('.group[data-testid="conversation-turn-2"]') ||
+                        editButton.closest('.group[class*="group"]');
+            }
+            // Approach 4: Look for the closest div that contains markdown content
+            if (!assistantMessage) {
+                let currentElement = editButton.parentElement;
+                while (currentElement && currentElement !== document.body) {
+                    if (currentElement.querySelector(".markdown")) {
+                        assistantMessage = currentElement;
+                        break;
+                    }
+                    currentElement = currentElement.parentElement;
+                }
+            }
+            // Now try to find the answer container
+            if (assistantMessage) {
+                // Try multiple selectors for the answer container
+                answerContainer =
+                    assistantMessage.querySelector(".markdown.prose.dark\\:prose-invert.w-full.break-words.light") ||
+                        assistantMessage.querySelector(".markdown") ||
+                        assistantMessage.querySelector('[class*="markdown"]') ||
+                        assistantMessage.querySelector('[class*="prose"]');
+            }
+            // If still not found, try searching from the edit button's context
+            if (!answerContainer) {
+                // Search in parent elements
+                let currentElement = editButton.parentElement;
+                while (currentElement && currentElement !== document.body) {
+                    const markdownElement = currentElement.querySelector(".markdown") ||
+                        currentElement.querySelector('[class*="markdown"]') ||
+                        currentElement.querySelector('[class*="prose"]');
+                    if (markdownElement) {
+                        answerContainer = markdownElement;
+                        break;
+                    }
+                    currentElement = currentElement.parentElement;
+                }
+            }
+            // Debug: Log all markdown elements in the document to see what's available
+            if (!answerContainer) {
+                const allMarkdownElements = document.querySelectorAll('.markdown, [class*="markdown"], [class*="prose"]');
+                // Try to find the closest one to our edit button
+                let closestElement = null;
+                let closestDistance = Infinity;
+                allMarkdownElements.forEach((element) => {
+                    const rect1 = editButton.getBoundingClientRect();
+                    const rect2 = element.getBoundingClientRect();
+                    const distance = Math.sqrt(Math.pow(rect1.left - rect2.left, 2) +
+                        Math.pow(rect1.top - rect2.top, 2));
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestElement = element;
+                    }
+                });
+                if (closestElement) {
+                    answerContainer = closestElement;
+                }
+            }
+            if (answerContainer) {
+                try {
+                    // Get the HTML content
+                    // Get the HTML content
+                    const htmlContent = answerContainer.innerHTML || "";
+                    const textContent = answerContainer.textContent || "";
+                    if (!htmlContent.trim() && !textContent.trim()) {
+                        throw new Error("No content found in answer container");
+                    }
+                    // Create a temporary print container
+                    const printContainer = document.createElement("div");
+                    printContainer.id = "chatgpt-print-container";
+                    printContainer.innerHTML = htmlContent;
+                    // Add print-specific styles
+                    const printStyles = document.createElement("style");
+                    printStyles.id = "chatgpt-print-styles";
+                    printStyles.textContent = `
+            @media print {
+              /* Hide everything except our print container */
+              body > *:not(#chatgpt-print-container) {
+                display: none !important;
+              }
+              
+              /* Style the print container */
+              #chatgpt-print-container {
+                display: block !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                line-height: 1.6 !important;
+                color: #333 !important;
+                max-width: 800px !important;
+                margin: 0 auto !important;
+                padding: 20px !important;
+                background: white !important;
+              }
+              
+              #chatgpt-print-container h1, 
+              #chatgpt-print-container h2, 
+              #chatgpt-print-container h3, 
+              #chatgpt-print-container h4, 
+              #chatgpt-print-container h5, 
+              #chatgpt-print-container h6 {
+                margin-top: 1.5em !important;
+                margin-bottom: 0.5em !important;
+                font-weight: 600 !important;
+              }
+              
+              #chatgpt-print-container h1 { font-size: 1.8em !important; }
+              #chatgpt-print-container h2 { font-size: 1.5em !important; }
+              #chatgpt-print-container h3 { font-size: 1.3em !important; }
+              
+              #chatgpt-print-container p {
+                margin-bottom: 1em !important;
+              }
+              
+              #chatgpt-print-container ul, 
+              #chatgpt-print-container ol {
+                margin-bottom: 1em !important;
+                padding-left: 2em !important;
+              }
+              
+              #chatgpt-print-container li {
+                margin-bottom: 0.5em !important;
+              }
+              
+              #chatgpt-print-container code {
+                background-color: #f6f8fa !important;
+                padding: 2px 4px !important;
+                border-radius: 3px !important;
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+                font-size: 0.9em !important;
+              }
+              
+              #chatgpt-print-container pre {
+                background-color: #f6f8fa !important;
+                padding: 16px !important;
+                border-radius: 6px !important;
+                overflow-x: auto !important;
+                margin: 1em 0 !important;
+              }
+              
+              #chatgpt-print-container pre code {
+                background: none !important;
+                padding: 0 !important;
+              }
+              
+              #chatgpt-print-container blockquote {
+                border-left: 4px solid #ddd !important;
+                margin: 1em 0 !important;
+                padding-left: 1em !important;
+                color: #666 !important;
+              }
+              
+              #chatgpt-print-container strong {
+                font-weight: 600 !important;
+              }
+              
+              #chatgpt-print-container em {
+                font-style: italic !important;
+              }
+            }
+            
+            /* Hide print container in normal view */
+            #chatgpt-print-container {
+              display: none;
+            }
+          `;
+                    // Add elements to the page
+                    document.head.appendChild(printStyles);
+                    document.body.appendChild(printContainer);
+                    // Function to clean up after printing
+                    const cleanup = () => {
+                        const existingContainer = document.getElementById("chatgpt-print-container");
+                        const existingStyles = document.getElementById("chatgpt-print-styles");
+                        if (existingContainer) {
+                            existingContainer.remove();
+                        }
+                        if (existingStyles) {
+                            existingStyles.remove();
+                        }
+                    };
+                    // Listen for print events to clean up
+                    const handleAfterPrint = () => {
+                        cleanup();
+                        window.removeEventListener("afterprint", handleAfterPrint);
+                    };
+                    window.addEventListener("afterprint", handleAfterPrint);
+                    // Trigger print
+                    window.print();
+                }
+                catch (error) {
+                    console.error("addDownloadButtonToAnswers: Error setting up print:", error);
+                    // Clean up on error
+                    const existingContainer = document.getElementById("chatgpt-print-container");
+                    const existingStyles = document.getElementById("chatgpt-print-styles");
+                    if (existingContainer) {
+                        existingContainer.remove();
+                    }
+                    if (existingStyles) {
+                        existingStyles.remove();
+                    }
+                }
+            }
+            else {
+                console.error("addDownloadButtonToAnswers: No answer container found after all attempts");
+            }
+        }));
         // Insert the download button after the edit button
         const buttonContainer = editButton.parentElement;
         if (buttonContainer) {
             buttonContainer.insertBefore(downloadButton, editButton.nextSibling);
+        }
+        else {
+            console.error(`addDownloadButtonToAnswers: No button container found for edit button ${index + 1}`);
         }
     });
 };
@@ -69005,7 +69235,6 @@ const App = () => {
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
         const handleChatNavigation = (event) => {
             const { chatId } = event.detail;
-            console.log(`App: Received chatNavigation event with chatId = ${chatId}`);
             setCurrentChatId(chatId);
             // Find the chat element
             const chatElement = document.querySelector(`a[href="/c/${chatId}"]`);
@@ -69025,7 +69254,6 @@ const App = () => {
         // Also check the current URL to set the initial chat ID
         const extractChatIdFromUrl = () => {
             const path = window.location.pathname;
-            console.log(`App: Current path = ${path}`);
             // Try different URL patterns
             const patterns = [
                 /\/c\/([^\/]+)/, // Standard format: /c/chatId
@@ -69035,7 +69263,6 @@ const App = () => {
             for (const pattern of patterns) {
                 const match = path.match(pattern);
                 if (match && match[1]) {
-                    console.log(`App: Found chatId from URL pattern ${pattern}: ${match[1]}`);
                     return match[1];
                 }
             }
@@ -69043,13 +69270,18 @@ const App = () => {
         };
         const initialChatId = extractChatIdFromUrl();
         if (initialChatId) {
-            console.log(`App: Setting initial chatId from URL = ${initialChatId}`);
             setCurrentChatId(initialChatId);
         }
         return () => {
             window.removeEventListener("chatNavigation", handleChatNavigation);
         };
     }, []);
+    // Update folder management when currentChatId changes
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        if (platform === "chatgpt") {
+            updateFolderManagement();
+        }
+    }, [currentChatId, platform]);
     // Add click outside listener for QuestionsCard
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
         const handleClickOutside = (event) => {
@@ -69155,12 +69387,54 @@ const App = () => {
                     // This depends on how ChatGPT's UI is structured
                 };
                 const handleRemoveChat = (folderId, chatId) => {
-                    console.log(`FolderManagement: Removing chat ${chatId} from folder ${folderId}`);
                     removeChatFromFolder(folderId, chatId);
                 };
-                return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "folder-management", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__.NewFolderButtonComponent, { onClick: handleNewFolderClick, label: "New Folder" }), folders.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__.FolderListComponent, { folders: folders, onEditFolder: handleEditFolder, onDeleteFolder: handleDeleteFolder, onAddChats: (folderId) => openAddChatsModal(folderId, {}), onSelectChat: handleSelectChat, onRemoveChat: handleRemoveChat }))] }));
+                return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "folder-management", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__.NewFolderButtonComponent, { onClick: handleNewFolderClick, label: "New Folder" }), folders.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__.FolderListComponent, { folders: folders, onEditFolder: handleEditFolder, onDeleteFolder: handleDeleteFolder, onAddChats: (folderId) => openAddChatsModal(folderId, {}), onSelectChat: handleSelectChat, onRemoveChat: handleRemoveChat, currentChatId: currentChatId || undefined }))] }));
             };
-            root.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderManagement, {}));
+            root.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderManagement, {}, currentChatId || "no-chat"));
+            // Store the root reference for later updates
+            folderContainer._root = root;
+        }
+    };
+    // Function to update the folder management component when currentChatId changes
+    const updateFolderManagement = () => {
+        const existingContainer = document.getElementById("folder-management-container");
+        if (existingContainer) {
+            const existingRoot = existingContainer._root;
+            if (existingRoot) {
+                // Create the FolderManagement component again with current currentChatId
+                const FolderManagement = () => {
+                    const { folders, setShowNewFolderModal, setEditingFolderId, handleDeleteFolder, openAddChatsModal, getFolderConversations, removeChatFromFolder, } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore)();
+                    const handleNewFolderClick = () => {
+                        // This is just a placeholder since NewFolderButtonComponent already calls setShowNewFolderModal
+                    };
+                    const handleEditFolder = (folderId) => {
+                        setEditingFolderId(folderId);
+                        const folder = folders.find((f) => f.id === folderId);
+                        if (folder) {
+                            // You might want to set other states as needed from your store
+                            setShowNewFolderModal(true);
+                        }
+                    };
+                    const handleSelectChat = (chatId, folderId) => {
+                        // Prevent default navigation and handle it programmatically
+                        const chatUrl = `/c/${chatId}`;
+                        // Use history API to navigate without page reload
+                        window.history.pushState({}, "", chatUrl);
+                        // Dispatch a custom event to notify that navigation has occurred
+                        window.dispatchEvent(new CustomEvent("chatNavigation", {
+                            detail: { chatId, folderId },
+                        }));
+                        // Optionally, you can also update the UI to reflect the selected chat
+                        // This depends on how ChatGPT's UI is structured
+                    };
+                    const handleRemoveChat = (folderId, chatId) => {
+                        removeChatFromFolder(folderId, chatId);
+                    };
+                    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { className: "folder-management", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__.NewFolderButtonComponent, { onClick: handleNewFolderClick, label: "New Folder" }), folders.length > 0 && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_sidePanel_FolderFeature__WEBPACK_IMPORTED_MODULE_7__.FolderListComponent, { folders: folders, onEditFolder: handleEditFolder, onDeleteFolder: handleDeleteFolder, onAddChats: (folderId) => openAddChatsModal(folderId, {}), onSelectChat: handleSelectChat, onRemoveChat: handleRemoveChat, currentChatId: currentChatId || undefined }))] }));
+                };
+                existingRoot.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderManagement, {}, currentChatId || "no-chat"));
+            }
         }
     };
     // Add folder button observer effect
@@ -69169,8 +69443,9 @@ const App = () => {
             // Function to add folder buttons to the sidenav
             const addFolderButtonsToSidenav = () => {
                 const sidebar = document.querySelector('nav[class*="flex-col"]');
-                if (!sidebar)
+                if (!sidebar) {
                     return;
+                }
                 addFolderButtonToChats();
                 insertNewFolderButtonAboveTarget();
                 addDownloadButtonToAnswers(); // Add download buttons

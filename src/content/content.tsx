@@ -17,6 +17,7 @@ import { NewFolderModal } from "../components/sidePanel/NewFolderModal";
 import { FolderSelectionModal } from "../components/sidePanel/FolderSelectionModal";
 import { SidePanel } from "../components/sidePanel/SidePanel";
 import { AddChatsModal } from "../components/sidePanel/AddChatsModal";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // Added NewFolderModal component from your interfac
 
@@ -93,13 +94,27 @@ const addFolderButtonToChats = () => {
 
           const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
           if (chatId) {
+            // Find which folder contains this chat
+            const folders = useSidePanelStore.getState().folders;
+            let folderId = null;
+
+            for (const folder of folders) {
+              const chatExists = folder.conversations.some(
+                (conv) => conv.id === chatId
+              );
+              if (chatExists) {
+                folderId = folder.id;
+                break;
+              }
+            }
+
             // Use history API to navigate without page reload
             window.history.pushState({}, "", `/c/${chatId}`);
 
             // Dispatch a custom event to notify that navigation has occurred
             window.dispatchEvent(
               new CustomEvent("chatNavigation", {
-                detail: { chatId },
+                detail: { chatId, folderId },
               })
             );
           }
@@ -114,19 +129,24 @@ const addFolderButtonToChats = () => {
 // Function to add download button to chat answers
 const addDownloadButtonToAnswers = () => {
   const chatContainer = document.querySelector("main");
-  if (!chatContainer) return;
+  if (!chatContainer) {
+    console.log("addDownloadButtonToAnswers: No main container found");
+    return;
+  }
 
   // Find all edit buttons in the chat container
   const editButtons = chatContainer.querySelectorAll(
     'button[aria-label="Edit in canvas"]'
   );
 
-  editButtons.forEach((editButton) => {
+  editButtons.forEach((editButton, index) => {
     // Check if download button already exists for this edit button
     const existingDownloadButton = editButton.parentElement?.querySelector(
       ".download-answer-button"
     );
-    if (existingDownloadButton) return;
+    if (existingDownloadButton) {
+      return;
+    }
 
     // Create download button
     const downloadButton = document.createElement("button");
@@ -145,29 +165,266 @@ const addDownloadButtonToAnswers = () => {
     `;
 
     // Add click handler for download functionality
-    downloadButton.addEventListener("click", (e) => {
+    downloadButton.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Find the answer text (usually in a markdown div near the edit button)
-      const answerContainer =
-        editButton.closest('[data-message-author-role="assistant"]') ||
-        editButton.closest(".markdown") ||
-        editButton.parentElement?.parentElement?.querySelector(".markdown");
+      // Debug: Log the edit button and its parent structure
+
+      // Find the answer content using multiple approaches
+      let assistantMessage = null;
+      let answerContainer = null;
+
+      // Approach 1: Look for assistant message using data attribute
+      assistantMessage = editButton.closest(
+        '[data-message-author-role="assistant"]'
+      );
+
+      // Approach 2: If not found, look for any parent with assistant role
+      if (!assistantMessage) {
+        assistantMessage = editButton.closest('[role="assistant"]');
+      }
+
+      // Approach 3: Look for parent with specific classes that indicate assistant message
+      if (!assistantMessage) {
+        assistantMessage =
+          editButton.closest('.group[data-testid="conversation-turn-2"]') ||
+          editButton.closest('.group[class*="group"]');
+      }
+
+      // Approach 4: Look for the closest div that contains markdown content
+      if (!assistantMessage) {
+        let currentElement = editButton.parentElement;
+        while (currentElement && currentElement !== document.body) {
+          if (currentElement.querySelector(".markdown")) {
+            assistantMessage = currentElement;
+            break;
+          }
+          currentElement = currentElement.parentElement;
+        }
+      }
+
+      // Now try to find the answer container
+      if (assistantMessage) {
+        // Try multiple selectors for the answer container
+        answerContainer =
+          assistantMessage.querySelector(
+            ".markdown.prose.dark\\:prose-invert.w-full.break-words.light"
+          ) ||
+          assistantMessage.querySelector(".markdown") ||
+          assistantMessage.querySelector('[class*="markdown"]') ||
+          assistantMessage.querySelector('[class*="prose"]');
+      }
+
+      // If still not found, try searching from the edit button's context
+      if (!answerContainer) {
+        // Search in parent elements
+        let currentElement = editButton.parentElement;
+        while (currentElement && currentElement !== document.body) {
+          const markdownElement =
+            currentElement.querySelector(".markdown") ||
+            currentElement.querySelector('[class*="markdown"]') ||
+            currentElement.querySelector('[class*="prose"]');
+          if (markdownElement) {
+            answerContainer = markdownElement;
+
+            break;
+          }
+          currentElement = currentElement.parentElement;
+        }
+      }
+
+      // Debug: Log all markdown elements in the document to see what's available
+      if (!answerContainer) {
+        const allMarkdownElements = document.querySelectorAll(
+          '.markdown, [class*="markdown"], [class*="prose"]'
+        );
+
+        // Try to find the closest one to our edit button
+        let closestElement = null;
+        let closestDistance = Infinity;
+
+        allMarkdownElements.forEach((element) => {
+          const rect1 = editButton.getBoundingClientRect();
+          const rect2 = element.getBoundingClientRect();
+          const distance = Math.sqrt(
+            Math.pow(rect1.left - rect2.left, 2) +
+              Math.pow(rect1.top - rect2.top, 2)
+          );
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestElement = element;
+          }
+        });
+
+        if (closestElement) {
+          answerContainer = closestElement;
+        }
+      }
 
       if (answerContainer) {
-        const answerText = answerContainer.textContent || "";
+        try {
+          // Get the HTML content
+          // Get the HTML content
+          const htmlContent = answerContainer.innerHTML || "";
+          const textContent = answerContainer.textContent || "";
 
-        // Create and download the file
-        const blob = new Blob([answerText], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `chatgpt-answer-${Date.now()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+          if (!htmlContent.trim() && !textContent.trim()) {
+            throw new Error("No content found in answer container");
+          }
+
+          // Create a temporary print container
+          const printContainer = document.createElement("div");
+          printContainer.id = "chatgpt-print-container";
+          printContainer.innerHTML = htmlContent;
+
+          // Add print-specific styles
+          const printStyles = document.createElement("style");
+          printStyles.id = "chatgpt-print-styles";
+          printStyles.textContent = `
+            @media print {
+              /* Hide everything except our print container */
+              body > *:not(#chatgpt-print-container) {
+                display: none !important;
+              }
+              
+              /* Style the print container */
+              #chatgpt-print-container {
+                display: block !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                line-height: 1.6 !important;
+                color: #333 !important;
+                max-width: 800px !important;
+                margin: 0 auto !important;
+                padding: 20px !important;
+                background: white !important;
+              }
+              
+              #chatgpt-print-container h1, 
+              #chatgpt-print-container h2, 
+              #chatgpt-print-container h3, 
+              #chatgpt-print-container h4, 
+              #chatgpt-print-container h5, 
+              #chatgpt-print-container h6 {
+                margin-top: 1.5em !important;
+                margin-bottom: 0.5em !important;
+                font-weight: 600 !important;
+              }
+              
+              #chatgpt-print-container h1 { font-size: 1.8em !important; }
+              #chatgpt-print-container h2 { font-size: 1.5em !important; }
+              #chatgpt-print-container h3 { font-size: 1.3em !important; }
+              
+              #chatgpt-print-container p {
+                margin-bottom: 1em !important;
+              }
+              
+              #chatgpt-print-container ul, 
+              #chatgpt-print-container ol {
+                margin-bottom: 1em !important;
+                padding-left: 2em !important;
+              }
+              
+              #chatgpt-print-container li {
+                margin-bottom: 0.5em !important;
+              }
+              
+              #chatgpt-print-container code {
+                background-color: #f6f8fa !important;
+                padding: 2px 4px !important;
+                border-radius: 3px !important;
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+                font-size: 0.9em !important;
+              }
+              
+              #chatgpt-print-container pre {
+                background-color: #f6f8fa !important;
+                padding: 16px !important;
+                border-radius: 6px !important;
+                overflow-x: auto !important;
+                margin: 1em 0 !important;
+              }
+              
+              #chatgpt-print-container pre code {
+                background: none !important;
+                padding: 0 !important;
+              }
+              
+              #chatgpt-print-container blockquote {
+                border-left: 4px solid #ddd !important;
+                margin: 1em 0 !important;
+                padding-left: 1em !important;
+                color: #666 !important;
+              }
+              
+              #chatgpt-print-container strong {
+                font-weight: 600 !important;
+              }
+              
+              #chatgpt-print-container em {
+                font-style: italic !important;
+              }
+            }
+            
+            /* Hide print container in normal view */
+            #chatgpt-print-container {
+              display: none;
+            }
+          `;
+
+          // Add elements to the page
+          document.head.appendChild(printStyles);
+          document.body.appendChild(printContainer);
+
+          // Function to clean up after printing
+          const cleanup = () => {
+            const existingContainer = document.getElementById(
+              "chatgpt-print-container"
+            );
+            const existingStyles = document.getElementById(
+              "chatgpt-print-styles"
+            );
+            if (existingContainer) {
+              existingContainer.remove();
+            }
+            if (existingStyles) {
+              existingStyles.remove();
+            }
+          };
+
+          // Listen for print events to clean up
+          const handleAfterPrint = () => {
+            cleanup();
+            window.removeEventListener("afterprint", handleAfterPrint);
+          };
+          window.addEventListener("afterprint", handleAfterPrint);
+
+          // Trigger print
+          window.print();
+        } catch (error) {
+          console.error(
+            "addDownloadButtonToAnswers: Error setting up print:",
+            error
+          );
+
+          // Clean up on error
+          const existingContainer = document.getElementById(
+            "chatgpt-print-container"
+          );
+          const existingStyles = document.getElementById(
+            "chatgpt-print-styles"
+          );
+          if (existingContainer) {
+            existingContainer.remove();
+          }
+          if (existingStyles) {
+            existingStyles.remove();
+          }
+        }
+      } else {
+        console.error(
+          "addDownloadButtonToAnswers: No answer container found after all attempts"
+        );
       }
     });
 
@@ -175,6 +432,12 @@ const addDownloadButtonToAnswers = () => {
     const buttonContainer = editButton.parentElement;
     if (buttonContainer) {
       buttonContainer.insertBefore(downloadButton, editButton.nextSibling);
+    } else {
+      console.error(
+        `addDownloadButtonToAnswers: No button container found for edit button ${
+          index + 1
+        }`
+      );
     }
   });
 };
@@ -194,7 +457,7 @@ const App: React.FC = () => {
   React.useEffect(() => {
     const handleChatNavigation = (event: CustomEvent) => {
       const { chatId } = event.detail;
-      console.log(`App: Received chatNavigation event with chatId = ${chatId}`);
+
       setCurrentChatId(chatId);
 
       // Find the chat element
@@ -223,7 +486,6 @@ const App: React.FC = () => {
     // Also check the current URL to set the initial chat ID
     const extractChatIdFromUrl = () => {
       const path = window.location.pathname;
-      console.log(`App: Current path = ${path}`);
 
       // Try different URL patterns
       const patterns = [
@@ -235,9 +497,6 @@ const App: React.FC = () => {
       for (const pattern of patterns) {
         const match = path.match(pattern);
         if (match && match[1]) {
-          console.log(
-            `App: Found chatId from URL pattern ${pattern}: ${match[1]}`
-          );
           return match[1];
         }
       }
@@ -247,7 +506,6 @@ const App: React.FC = () => {
 
     const initialChatId = extractChatIdFromUrl();
     if (initialChatId) {
-      console.log(`App: Setting initial chatId from URL = ${initialChatId}`);
       setCurrentChatId(initialChatId);
     }
 
@@ -258,6 +516,13 @@ const App: React.FC = () => {
       );
     };
   }, []);
+
+  // Update folder management when currentChatId changes
+  React.useEffect(() => {
+    if (platform === "chatgpt") {
+      updateFolderManagement();
+    }
+  }, [currentChatId, platform]);
 
   // Add click outside listener for QuestionsCard
   React.useEffect(() => {
@@ -280,6 +545,7 @@ const App: React.FC = () => {
   React.useEffect(() => {
     // Detect which platform we're on
     const hostname = window.location.hostname;
+
     let platform: "perplexity" | "chatgpt" | "deepseek" | null = null;
 
     if (hostname.includes(PERPLEXITY_DOMAIN)) {
@@ -408,9 +674,6 @@ const App: React.FC = () => {
         };
 
         const handleRemoveChat = (folderId: string, chatId: string) => {
-          console.log(
-            `FolderManagement: Removing chat ${chatId} from folder ${folderId}`
-          );
           removeChatFromFolder(folderId, chatId);
         };
 
@@ -431,13 +694,103 @@ const App: React.FC = () => {
                 }
                 onSelectChat={handleSelectChat}
                 onRemoveChat={handleRemoveChat}
+                currentChatId={currentChatId || undefined}
               />
             )}
           </div>
         );
       };
 
-      root.render(<FolderManagement />);
+      root.render(<FolderManagement key={currentChatId || "no-chat"} />);
+
+      // Store the root reference for later updates
+      (folderContainer as any)._root = root;
+    }
+  };
+
+  // Function to update the folder management component when currentChatId changes
+  const updateFolderManagement = () => {
+    const existingContainer = document.getElementById(
+      "folder-management-container"
+    );
+    if (existingContainer) {
+      const existingRoot = (existingContainer as any)._root;
+      if (existingRoot) {
+        // Create the FolderManagement component again with current currentChatId
+        const FolderManagement = () => {
+          const {
+            folders,
+            setShowNewFolderModal,
+            setEditingFolderId,
+            handleDeleteFolder,
+            openAddChatsModal,
+            getFolderConversations,
+            removeChatFromFolder,
+          } = useSidePanelStore();
+
+          const handleNewFolderClick = () => {
+            // This is just a placeholder since NewFolderButtonComponent already calls setShowNewFolderModal
+          };
+
+          const handleEditFolder = (folderId: string) => {
+            setEditingFolderId(folderId);
+            const folder = folders.find((f) => f.id === folderId);
+            if (folder) {
+              // You might want to set other states as needed from your store
+              setShowNewFolderModal(true);
+            }
+          };
+
+          const handleSelectChat = (chatId: string, folderId: string) => {
+            // Prevent default navigation and handle it programmatically
+            const chatUrl = `/c/${chatId}`;
+
+            // Use history API to navigate without page reload
+            window.history.pushState({}, "", chatUrl);
+
+            // Dispatch a custom event to notify that navigation has occurred
+            window.dispatchEvent(
+              new CustomEvent("chatNavigation", {
+                detail: { chatId, folderId },
+              })
+            );
+
+            // Optionally, you can also update the UI to reflect the selected chat
+            // This depends on how ChatGPT's UI is structured
+          };
+
+          const handleRemoveChat = (folderId: string, chatId: string) => {
+            removeChatFromFolder(folderId, chatId);
+          };
+
+          return (
+            <div className="folder-management">
+              <NewFolderButtonComponent
+                onClick={handleNewFolderClick}
+                label="New Folder"
+              />
+
+              {folders.length > 0 && (
+                <FolderListComponent
+                  folders={folders}
+                  onEditFolder={handleEditFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onAddChats={(folderId) =>
+                    openAddChatsModal(folderId, {} as any)
+                  }
+                  onSelectChat={handleSelectChat}
+                  onRemoveChat={handleRemoveChat}
+                  currentChatId={currentChatId || undefined}
+                />
+              )}
+            </div>
+          );
+        };
+
+        existingRoot.render(
+          <FolderManagement key={currentChatId || "no-chat"} />
+        );
+      }
     }
   };
   // Add folder button observer effect
@@ -446,7 +799,9 @@ const App: React.FC = () => {
       // Function to add folder buttons to the sidenav
       const addFolderButtonsToSidenav = () => {
         const sidebar = document.querySelector('nav[class*="flex-col"]');
-        if (!sidebar) return;
+        if (!sidebar) {
+          return;
+        }
 
         addFolderButtonToChats();
         insertNewFolderButtonAboveTarget();

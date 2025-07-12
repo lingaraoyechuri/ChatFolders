@@ -253,20 +253,6 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
   currentChatId,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
-  const [activeChatId, setActiveChatId] = useState<string | undefined>(
-    currentChatId
-  );
-
-  // Update activeChatId when currentChatId changes
-  React.useEffect(() => {
-    console.log(`FolderComponent: currentChatId changed to ${currentChatId}`);
-    setActiveChatId(currentChatId);
-  }, [currentChatId]);
-
-  // Add debug logs
-  console.log(
-    `FolderComponent for folder ${folder.id}: currentChatId = ${currentChatId}, activeChatId = ${activeChatId}`
-  );
 
   const handleToggleExpand = () => {
     onToggleExpand();
@@ -293,18 +279,12 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
   };
 
   const handleChatClick = (chatId: string) => {
-    console.log(`FolderComponent: Chat clicked - ${chatId}`);
-    // Update the active chat ID immediately for better UX
-    setActiveChatId(chatId);
-    // Then call the parent handler
+    // Call the parent handler to update the global currentChatId
     onSelectChat(chatId, folder.id);
   };
 
   const handleRemoveChat = (e: React.MouseEvent, chatId: string) => {
     e.stopPropagation();
-    console.log(
-      `FolderComponent: Removing chat ${chatId} from folder ${folder.id}`
-    );
 
     // Make sure we're passing the folder ID and chat ID correctly
     if (onRemoveChat) {
@@ -332,14 +312,20 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
       {isExpanded && (
         <ChatsContainer>
           {folder.conversations.map((chat) => {
-            // Add debug logs for each chat
-            const isActive = activeChatId === chat.id;
-            console.log(`Chat ${chat.id}: isActive = ${isActive}`);
+            // Ensure currentChatId is a valid string for comparison
+            // Only show chat as active if currentChatId is a valid string and matches
+            const isActive = currentChatId === chat.id;
+
+            // Temporary debug log
+            console.log(
+              `Folder ${folder.name}: Chat ${chat.id} isActive = ${isActive}, currentChatId = ${currentChatId}`
+            );
             return (
               <ChatItem
                 key={chat.id}
                 onClick={() => handleChatClick(chat.id)}
                 isActive={isActive}
+                data-active={isActive}
               >
                 <ChatTitle>{chat.title}</ChatTitle>
                 <RemoveButton onClick={(e) => handleRemoveChat(e, chat.id)}>
@@ -421,16 +407,34 @@ export const FolderListComponent: React.FC<FolderListProps> = ({
   onUpdateChatTitle,
   currentChatId,
 }) => {
-  const [expandedFolders, setExpandedFolders] = useState<
-    Record<string, boolean>
-  >({});
+  // Use expandedFolders from the store instead of local state
+  const { expandedFolders, toggleFolderExpansion } = useSidePanelStore();
 
-  const toggleFolderExpansion = (folderId: string) => {
-    setExpandedFolders((prev) => ({
-      ...prev,
-      [folderId]: !prev[folderId],
-    }));
-  };
+  // Debug log to check what currentChatId is received
+  // console.log(
+  //   `FolderListComponent Debug: received currentChatId = ${currentChatId}`
+  // );
+
+  // Use a ref to maintain the last valid currentChatId
+  const lastValidChatIdRef = React.useRef<string | undefined>(undefined);
+
+  // Update the ref when we receive a valid currentChatId
+  if (typeof currentChatId === "string" && currentChatId.trim() !== "") {
+    lastValidChatIdRef.current = currentChatId;
+  }
+
+  // Use the last valid chat ID or the current one if it's valid
+  const safeCurrentChatId =
+    typeof currentChatId === "string" && currentChatId.trim() !== ""
+      ? currentChatId
+      : lastValidChatIdRef.current;
+
+  // Add useEffect to track currentChatId changes
+  // React.useEffect(() => {
+  //   console.log(
+  //     `FolderListComponent: currentChatId changed to ${currentChatId}`
+  //   );
+  // }, [currentChatId]);
 
   return (
     <FolderContainer>
@@ -446,7 +450,7 @@ export const FolderListComponent: React.FC<FolderListProps> = ({
           onSelectChat={onSelectChat}
           onRemoveChat={onRemoveChat}
           onUpdateChatTitle={onUpdateChatTitle}
-          currentChatId={currentChatId}
+          currentChatId={safeCurrentChatId}
         />
       ))}
     </FolderContainer>

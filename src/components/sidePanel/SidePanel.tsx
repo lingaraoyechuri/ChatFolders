@@ -14,9 +14,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   platform,
   currentChatId,
 }) => {
-  // Add debug logs
-  console.log(`SidePanel: received currentChatId prop = ${currentChatId}`);
-
   const {
     folders,
     selectedFolder,
@@ -51,17 +48,22 @@ export const SidePanel: React.FC<SidePanelProps> = ({
   // Use the prop if provided, otherwise use the local state
   const effectiveCurrentChatId = currentChatId || localCurrentChatId;
 
-  // Add debug logs
-  console.log(`SidePanel: localCurrentChatId = ${localCurrentChatId}`);
-  console.log(`SidePanel: effectiveCurrentChatId = ${effectiveCurrentChatId}`);
+  // Ensure we always pass a valid string or undefined
+  // If we have a currentChatId prop, always use it
+  // If we don't have a currentChatId prop but have a localCurrentChatId, use that
+  // Only set to undefined if both are falsy
+  const finalCurrentChatId =
+    typeof currentChatId === "string" && currentChatId.trim() !== ""
+      ? currentChatId
+      : typeof localCurrentChatId === "string" &&
+        localCurrentChatId.trim() !== ""
+      ? localCurrentChatId
+      : undefined;
 
   // Add event listener for chat navigation
   React.useEffect(() => {
     const handleChatNavigation = (event: CustomEvent) => {
-      const { chatId } = event.detail;
-      console.log(
-        `SidePanel: Received chatNavigation event with chatId = ${chatId}`
-      );
+      const { chatId, folderId } = event.detail;
       setLocalCurrentChatId(chatId);
     };
 
@@ -73,7 +75,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     // Also check the current URL to set the initial chat ID
     const extractChatIdFromUrl = () => {
       const path = window.location.pathname;
-      console.log(`SidePanel: Current path = ${path}`);
 
       // Try different URL patterns
       const patterns = [
@@ -85,9 +86,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
       for (const pattern of patterns) {
         const match = path.match(pattern);
         if (match && match[1]) {
-          console.log(
-            `SidePanel: Found chatId from URL pattern ${pattern}: ${match[1]}`
-          );
           return match[1];
         }
       }
@@ -98,9 +96,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     // Initialize currentChatId from URL on component mount
     const initialChatId = extractChatIdFromUrl();
     if (initialChatId) {
-      console.log(
-        `SidePanel: Setting initial chatId from URL = ${initialChatId}`
-      );
       setLocalCurrentChatId(initialChatId);
     }
 
@@ -140,8 +135,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
   // Function to handle adding chats to a folder
   const handleAddChats = (folderId: string) => {
-    console.log(`SidePanel: handleAddChats called with folderId = ${folderId}`);
-
     // Create a synthetic event object
     const syntheticEvent = {
       stopPropagation: () => {},
@@ -151,9 +144,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     // Find the folder
     const folder = folders.find((f) => f.id === folderId);
     if (folder) {
-      console.log(
-        `SidePanel: Found folder ${folder.name} with ID ${folder.id}`
-      );
       openAddChatsModal(folderId, syntheticEvent);
     } else {
       console.error(`SidePanel: Folder with ID ${folderId} not found`);
@@ -184,7 +174,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
             onAddChats={handleAddChats}
             onSelectChat={handleSelectChat}
             onRemoveChat={handleRemoveChat}
-            currentChatId={effectiveCurrentChatId || undefined}
+            currentChatId={finalCurrentChatId}
           />
         ) : (
           <S.EmptyState>
