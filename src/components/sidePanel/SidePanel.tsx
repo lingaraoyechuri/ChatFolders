@@ -6,6 +6,7 @@ import { SidePanelProps } from "../../types/sidePanel";
 import { Folder } from "../../types/sidePanel";
 import * as S from "../../styles/sidePanel";
 import { NewFolderModal } from "./NewFolderModal";
+import { AddChatsModal } from "./AddChatsModal";
 
 export const SidePanel: React.FC<SidePanelProps> = ({
   isOpen,
@@ -139,13 +140,24 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
   // Function to handle adding chats to a folder
   const handleAddChats = (folderId: string) => {
+    console.log(`SidePanel: handleAddChats called with folderId = ${folderId}`);
+
     // Create a synthetic event object
     const syntheticEvent = {
       stopPropagation: () => {},
       preventDefault: () => {},
     } as React.MouseEvent;
 
-    openAddChatsModal(folderId, syntheticEvent);
+    // Find the folder
+    const folder = folders.find((f) => f.id === folderId);
+    if (folder) {
+      console.log(
+        `SidePanel: Found folder ${folder.name} with ID ${folder.id}`
+      );
+      openAddChatsModal(folderId, syntheticEvent);
+    } else {
+      console.error(`SidePanel: Folder with ID ${folderId} not found`);
+    }
   };
 
   // Function to handle removing a chat from a folder
@@ -183,6 +195,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
       </S.FolderList>
 
       <NewFolderModal />
+      {selectedFolder && <AddChatsModal folder={selectedFolder} />}
     </S.SidePanelContainer>
   );
 };

@@ -166,10 +166,15 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
     set({ activeDropdown: null });
   },
   openAddChatsModal: (folderId, event) => {
+    console.log(`Store: openAddChatsModal called with folderId = ${folderId}`);
     event.stopPropagation();
     const folder = get().folders.find((f) => f.id === folderId);
     if (folder) {
+      console.log(`Store: Found folder ${folder.name} with ID ${folder.id}`);
       set({ selectedFolder: folder, showAddChatsModal: true });
+      console.log(`Store: Set selectedFolder and showAddChatsModal = true`);
+    } else {
+      console.error(`Store: Folder with ID ${folderId} not found`);
     }
   },
   removeChatFromFolder: (folderId, chatId, event?: React.MouseEvent) => {

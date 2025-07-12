@@ -16,6 +16,7 @@ import {
 import { NewFolderModal } from "../components/sidePanel/NewFolderModal";
 import { FolderSelectionModal } from "../components/sidePanel/FolderSelectionModal";
 import { SidePanel } from "../components/sidePanel/SidePanel";
+import { AddChatsModal } from "../components/sidePanel/AddChatsModal";
 
 // Added NewFolderModal component from your interfac
 
@@ -110,6 +111,74 @@ const addFolderButtonToChats = () => {
 
 // Function to insert new folder button above target element
 
+// Function to add download button to chat answers
+const addDownloadButtonToAnswers = () => {
+  const chatContainer = document.querySelector("main");
+  if (!chatContainer) return;
+
+  // Find all edit buttons in the chat container
+  const editButtons = chatContainer.querySelectorAll(
+    'button[aria-label="Edit in canvas"]'
+  );
+
+  editButtons.forEach((editButton) => {
+    // Check if download button already exists for this edit button
+    const existingDownloadButton = editButton.parentElement?.querySelector(
+      ".download-answer-button"
+    );
+    if (existingDownloadButton) return;
+
+    // Create download button
+    const downloadButton = document.createElement("button");
+    downloadButton.className =
+      "download-answer-button text-token-text-secondary hover:bg-token-bg-secondary rounded-lg";
+    downloadButton.setAttribute("aria-label", "Download answer");
+    downloadButton.setAttribute("data-state", "closed");
+
+    downloadButton.innerHTML = `
+      <span class="touch:w-10 flex h-8 w-8 items-center justify-center">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="icon">
+          <path d="M10.0003 2.5C10.3676 2.5 10.6653 2.79777 10.6653 3.16504V12.9883L13.4717 10.1819C13.7314 9.92226 14.1525 9.92226 14.4122 10.1819C14.6718 10.4416 14.6718 10.8627 14.4122 11.1223L10.4717 15.0628C10.212 15.3224 9.79097 15.3224 9.53131 15.0628L5.59082 11.1223C5.33118 10.8627 5.33118 10.4416 5.59082 10.1819C5.85046 9.92226 6.27153 9.92226 6.53117 10.1819L9.33521 12.9883V3.16504C9.33521 2.79777 9.63298 2.5 10.0003 2.5Z"></path>
+          <path d="M17.5 16.6654C17.5 17.0326 17.2022 17.3304 16.835 17.3304H3.16504C2.79777 17.3304 2.5 17.0326 2.5 16.6654C2.5 16.2981 2.79777 16.0003 3.16504 16.0003H16.835C17.2022 16.0003 17.5 16.2981 17.5 16.6654Z"></path>
+        </svg>
+      </span>
+    `;
+
+    // Add click handler for download functionality
+    downloadButton.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Find the answer text (usually in a markdown div near the edit button)
+      const answerContainer =
+        editButton.closest('[data-message-author-role="assistant"]') ||
+        editButton.closest(".markdown") ||
+        editButton.parentElement?.parentElement?.querySelector(".markdown");
+
+      if (answerContainer) {
+        const answerText = answerContainer.textContent || "";
+
+        // Create and download the file
+        const blob = new Blob([answerText], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `chatgpt-answer-${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    // Insert the download button after the edit button
+    const buttonContainer = editButton.parentElement;
+    if (buttonContainer) {
+      buttonContainer.insertBefore(downloadButton, editButton.nextSibling);
+    }
+  });
+};
+
 // App component
 const App: React.FC = () => {
   const [platform, setPlatform] = React.useState<
@@ -119,6 +188,7 @@ const App: React.FC = () => {
   const [questions, setQuestions] = React.useState<string[]>([]);
   const [currentChatId, setCurrentChatId] = React.useState<string | null>(null);
   const [isOpen, setIsOpen] = React.useState(false);
+  const questionsCardRef = React.useRef<HTMLDivElement>(null);
 
   // Add event listener for chat navigation
   React.useEffect(() => {
@@ -189,6 +259,24 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Add click outside listener for QuestionsCard
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showQuestions &&
+        questionsCardRef.current &&
+        !questionsCardRef.current.contains(event.target as Node)
+      ) {
+        setShowQuestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showQuestions]);
+
   React.useEffect(() => {
     // Detect which platform we're on
     const hostname = window.location.hostname;
@@ -217,11 +305,48 @@ const App: React.FC = () => {
     showNewFolderModal,
     showFolderSelectionModal,
     selectedChats,
+    showAddChatsModal,
+    selectedFolder,
   } = useSidePanelStore();
+
+  const handleOnQuestionClick = (question: string) => {
+    const chatContainer = document.querySelector("main");
+    if (!chatContainer) return;
+
+    // Find all elements with the whitespace-pre-wrap class
+    const questionElements = chatContainer.querySelectorAll(
+      'div[class*="whitespace-pre-wrap"]'
+    );
+
+    // Look for the element that contains the clicked question
+    for (const element of questionElements) {
+      const elementText = element.textContent?.trim();
+      if (elementText === question.trim()) {
+        // Scroll to the element with smooth behavior
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        // Add a temporary highlight effect
+        const htmlElement = element as HTMLElement;
+        const originalBackground = htmlElement.style.backgroundColor;
+        htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
+        htmlElement.style.transition = "background-color 0.3s ease";
+
+        // Remove the highlight after 2 seconds
+        setTimeout(() => {
+          htmlElement.style.backgroundColor = originalBackground;
+        }, 2000);
+
+        break;
+      }
+    }
+  };
 
   const insertNewFolderButtonAboveTarget = () => {
     const targetElement = document.querySelector(
-      ".flex.flex-col.gap-2.text-token-text-primary.text-sm.mt-5.first\\:mt-0.false"
+      ".pt-\\(--sidebar-section-margin-top\\).last\\:mb-5"
     );
 
     if (
@@ -325,6 +450,7 @@ const App: React.FC = () => {
 
         addFolderButtonToChats();
         insertNewFolderButtonAboveTarget();
+        addDownloadButtonToAnswers(); // Add download buttons
 
         // Render NewFolderButtonComponent in the specified class
         const targetElement = document.querySelector(
@@ -338,7 +464,7 @@ const App: React.FC = () => {
           newFolderButtonContainer.className = "new-folder-button-container";
           targetElement.appendChild(newFolderButtonContainer);
           const root = createRoot(newFolderButtonContainer);
-          root.render(<NewFolderButtonComponent onClick={() => {}} />);
+          // root.render(<NewFolderButtonComponent onClick={() => {}} />);
         }
       };
 
@@ -370,6 +496,7 @@ const App: React.FC = () => {
         const folderButtonObserver = new MutationObserver(() => {
           addFolderButtonToChats();
           insertNewFolderButtonAboveTarget();
+          addDownloadButtonToAnswers(); // Add download buttons
         });
 
         folderButtonObserver.observe(sidebar, {
@@ -397,7 +524,7 @@ const App: React.FC = () => {
 
       const observer = new MutationObserver(() => {
         const questionElements = chatContainer.querySelectorAll(
-          'div[class*="markdown"]'
+          'div[class*="whitespace-pre-wrap"]'
         );
         const newQuestions = Array.from(questionElements).map(
           (el) => el.textContent || ""
@@ -425,7 +552,14 @@ const App: React.FC = () => {
         showQuestions={showQuestions}
         onToggle={() => setShowQuestions(!showQuestions)}
       />
-      {showQuestions && <QuestionsCard questions={questions} />}
+      {showQuestions && (
+        <div ref={questionsCardRef}>
+          <QuestionsCard
+            questions={questions}
+            onQuestionClick={handleOnQuestionClick}
+          />
+        </div>
+      )}
       <SidePanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
@@ -434,6 +568,9 @@ const App: React.FC = () => {
       />
       {showNewFolderModal && <NewFolderModal />}
       {showFolderSelectionModal && <FolderSelectionModal />}
+      {showAddChatsModal && selectedFolder && (
+        <AddChatsModal folder={selectedFolder} />
+      )}
     </>
   );
 };

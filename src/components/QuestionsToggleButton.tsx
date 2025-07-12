@@ -3,7 +3,7 @@ import styled from "styled-components";
 
 const Button = styled.button`
   position: fixed;
-  top: 20px;
+  top: 50px;
   right: 20px;
   background: #1a1a1a;
   color: #ffffff;

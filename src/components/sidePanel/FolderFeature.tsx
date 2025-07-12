@@ -77,6 +77,10 @@ const FolderEmoji = styled.div`
 
 const FolderName = styled.span`
   font-size: 14px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 const FolderCount = styled.span`
@@ -86,19 +90,29 @@ const FolderCount = styled.span`
 `;
 
 const FolderActions = styled.div`
-  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 `;
 
-const MoreButton = styled.button`
+const ActionButton = styled.button`
   background: none;
   border: none;
   color: #9ca3af;
   cursor: pointer;
   padding: 4px;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  transition: all 0.2s ease-in-out;
 
   &:hover {
-    color: white;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.1);
   }
 `;
 
@@ -170,7 +184,7 @@ const Dropdown = styled.div`
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 10;
+  z-index: 999;
   width: 160px;
 `;
 
@@ -302,22 +316,16 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
 
   return (
     <FolderCard>
-      <FolderHeader onClick={handleToggleExpand}>
-        <FolderTitle>
+      <FolderHeader>
+        <FolderTitle onClick={handleToggleExpand}>
           <FolderEmoji>{folder.emoji}</FolderEmoji>
           <FolderName>{folder.name}</FolderName>
-          <FolderCount>{folder.conversations.length} chats saved</FolderCount>
+          <FolderCount>#{folder.conversations.length}</FolderCount>
         </FolderTitle>
         <FolderActions>
-          <MoreButton onClick={handleToggleDropdown}>···</MoreButton>
-          {showDropdown && (
-            <FolderDropdown
-              folder={folder}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onAddChats={handleAddChats}
-            />
-          )}
+          <ActionButton onClick={handleEdit}>✎</ActionButton>
+          <ActionButton onClick={handleDelete}>🗑️</ActionButton>
+          <ActionButton onClick={handleAddChats}>+</ActionButton>
         </FolderActions>
       </FolderHeader>
 
