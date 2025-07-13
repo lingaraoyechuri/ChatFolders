@@ -37,6 +37,27 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
     getAvailableChats,
   } = useSidePanelStore();
 
+  // Refresh available chats when modal opens
+  React.useEffect(() => {
+    if (showAddChatsModal) {
+      console.log("AddChatsModal: Modal opened, refreshing available chats...");
+      // Add a small delay to ensure all chats are loaded
+      const timer = setTimeout(() => {
+        const chats = getAvailableChats();
+        console.log("AddChatsModal: Available chats count:", chats.length);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showAddChatsModal, getAvailableChats]);
+
+  const handleRefresh = () => {
+    console.log("AddChatsModal: Manual refresh triggered");
+    // Force a re-render by calling getAvailableChats
+    const chats = getAvailableChats();
+    console.log("AddChatsModal: Refreshed chats count:", chats.length);
+  };
+
   const handleClose = () => {
     closeAddChatsModal();
     onClose?.();
@@ -45,6 +66,14 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
   const availableChats = getAvailableChats();
   const filteredChats = availableChats.filter((chat: Conversation) =>
     chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  console.log(
+    "AddChatsModal: Rendering with",
+    availableChats.length,
+    "available chats,",
+    filteredChats.length,
+    "filtered chats"
   );
 
   return (
@@ -115,8 +144,43 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
                 <SearchIcon sx={{ color: "#8a8d91" }} />
               </InputAdornment>
             ),
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={handleRefresh}
+                  sx={{ color: "#8a8d91" }}
+                  title="Refresh available chats"
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10 3a7 7 0 0 0-7 7H1l3.5 3.5L8 10H6a4 4 0 1 1 4 4v2a6 6 0 1 0-6-6H2a8 8 0 1 1 8 8v-2a6 6 0 0 0 0-12z" />
+                  </svg>
+                </IconButton>
+              </InputAdornment>
+            ),
           }}
         />
+
+        {/* Debug info */}
+        <div
+          style={{
+            fontSize: "12px",
+            color: "#8a8d91",
+            marginBottom: "8px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>Available chats: {availableChats.length}</span>
+          <span>Filtered chats: {filteredChats.length}</span>
+          {searchQuery && <span>Search: "{searchQuery}"</span>}
+        </div>
+
         {filteredChats.length > 0 ? (
           <List
             sx={{

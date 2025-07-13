@@ -23,8 +23,41 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // Function to add folder button to chats
 const addFolderButtonToChats = () => {
-  const chatItems = document.querySelectorAll('a[href^="/c/"]');
-  chatItems.forEach((chatItem) => {
+  // Use more comprehensive selectors to find chat links
+  const chatSelectors = [
+    'a[href^="/c/"]', // Standard chat links
+    'a[href*="/c/"]', // Any link containing /c/
+    "a[data-fill]", // Links with data-fill attribute
+    'a[class*="__menu-item"]', // Menu item links
+    'a[class*="hoverable"]', // Hoverable links
+    'a[class*="group"]', // Links with group class
+  ];
+
+  let allChatItems: Element[] = [];
+
+  // Collect all chat items from different selectors
+  chatSelectors.forEach((selector) => {
+    try {
+      const items = Array.from(document.querySelectorAll(selector));
+      allChatItems = [...allChatItems, ...items];
+    } catch (error) {
+      console.warn(`Failed to query selector: ${selector}`, error);
+    }
+  });
+
+  // Remove duplicates based on href
+  const uniqueChatItems = allChatItems.filter((item, index, self) => {
+    const href = item.getAttribute("href");
+    return (
+      href && self.findIndex((i) => i.getAttribute("href") === href) === index
+    );
+  });
+
+  console.log(
+    `addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items`
+  );
+
+  uniqueChatItems.forEach((chatItem) => {
     if (!chatItem.querySelector(".folder-button")) {
       const folderButton = document.createElement("button");
       folderButton.className = "folder-button";
@@ -867,9 +900,17 @@ const App: React.FC = () => {
           subtree: true,
         });
 
+        // Also set up a periodic refresh to catch any missed chats
+        const periodicRefresh = setInterval(() => {
+          addFolderButtonToChats();
+          insertNewFolderButtonAboveTarget();
+          addDownloadButtonToAnswers();
+        }, 2000); // Refresh every 2 seconds
+
         return () => {
           folderButtonObserver.disconnect();
           documentObserver.disconnect();
+          clearInterval(periodicRefresh);
         };
       }
 
