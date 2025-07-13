@@ -46,7 +46,6 @@ const FolderCard = styled.div<{ isActive?: boolean }>`
   border-radius: 8px;
   background-color: #1e1f23;
   margin-bottom: 12px;
-  overflow: hidden;
 `;
 
 const FolderHeader = styled.div`
@@ -83,6 +82,21 @@ const FolderName = styled.span`
   white-space: nowrap;
 `;
 
+const FolderNameInput = styled.input`
+  font-size: 14px;
+  color: white;
+  background-color: #2d2d33;
+  border: 1px solid #37373d;
+  border-radius: 4px;
+  padding: 4px 8px;
+  width: 100px;
+  outline: none;
+
+  &:focus {
+    border-color: #57606a;
+  }
+`;
+
 const FolderCount = styled.span`
   margin-left: 8px;
   color: #9ca3af;
@@ -93,6 +107,7 @@ const FolderActions = styled.div`
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  position: relative;
 `;
 
 const ActionButton = styled.button`
@@ -179,22 +194,34 @@ const RemoveButton = styled.button`
 const Dropdown = styled.div`
   position: absolute;
   right: 0;
-  top: 30px;
+  bottom: 100%;
   background-color: #2d2d33;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 999;
-  width: 160px;
+  width: 140px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 `;
 
 const DropdownItem = styled.div`
   padding: 10px 16px;
   cursor: pointer;
   color: #d1d5db;
+  font-size: 13px;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.07);
+  }
+
+  &:first-child {
+    border-radius: 8px 8px 0 0;
+  }
+
+  &:last-child {
+    border-radius: 0 0 8px 8px;
   }
 `;
 
@@ -236,6 +263,7 @@ interface FolderComponentProps {
     chatId: string,
     newTitle: string
   ) => void;
+  onUpdateFolderName?: (folderId: string, newName: string) => void;
   currentChatId?: string; // Add this prop to track the current chat
 }
 
@@ -250,12 +278,52 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
   onSelectChat,
   onRemoveChat,
   onUpdateChatTitle,
+  onUpdateFolderName,
   currentChatId,
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(folder.name);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Add click outside handler to close dropdown
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDropdown) {
+        // Check if click is outside both the button and dropdown
+        const target = event.target as Node;
+        const isClickInsideDropdown = dropdownRef.current?.contains(target);
+        const isClickInsideButton = buttonRef.current?.contains(target);
+
+        if (!isClickInsideDropdown && !isClickInsideButton) {
+          setShowDropdown(false);
+        }
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDropdown]);
+
+  // Focus input when editing starts
+  React.useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
 
   const handleToggleExpand = () => {
-    onToggleExpand();
+    if (!isEditing) {
+      onToggleExpand();
+    }
   };
 
   const handleToggleDropdown = (e: React.MouseEvent) => {
@@ -265,7 +333,30 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
 
   const handleEdit = () => {
     setShowDropdown(false);
-    onEditFolder(folder.id);
+    setIsEditing(true);
+    setEditName(folder.name);
+  };
+
+  const handleSaveEdit = () => {
+    if (editName.trim() !== "" && editName.trim() !== folder.name) {
+      if (onUpdateFolderName) {
+        onUpdateFolderName(folder.id, editName);
+      }
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(folder.name);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveEdit();
+    } else if (e.key === "Escape") {
+      handleCancelEdit();
+    }
   };
 
   const handleDelete = () => {
@@ -299,13 +390,30 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
       <FolderHeader>
         <FolderTitle onClick={handleToggleExpand}>
           <FolderEmoji>{folder.emoji}</FolderEmoji>
-          <FolderName>{folder.name}</FolderName>
+          {isEditing ? (
+            <FolderNameInput
+              ref={inputRef}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleSaveEdit}
+            />
+          ) : (
+            <FolderName>{folder.name}</FolderName>
+          )}
           <FolderCount>#{folder.conversations.length}</FolderCount>
         </FolderTitle>
         <FolderActions>
-          <ActionButton onClick={handleEdit}>✎</ActionButton>
-          <ActionButton onClick={handleDelete}>🗑️</ActionButton>
-          <ActionButton onClick={handleAddChats}>+</ActionButton>
+          <ActionButton ref={buttonRef} onClick={handleToggleDropdown}>
+            ⋯
+          </ActionButton>
+          {showDropdown && (
+            <Dropdown ref={dropdownRef}>
+              <DropdownItem onClick={handleEdit}>Edit folder</DropdownItem>
+              <DropdownItem onClick={handleAddChats}>Add chats</DropdownItem>
+              <DropdownItem onClick={handleDelete}>Delete folder</DropdownItem>
+            </Dropdown>
+          )}
         </FolderActions>
       </FolderHeader>
 
@@ -408,7 +516,8 @@ export const FolderListComponent: React.FC<FolderListProps> = ({
   currentChatId,
 }) => {
   // Use expandedFolders from the store instead of local state
-  const { expandedFolders, toggleFolderExpansion } = useSidePanelStore();
+  const { expandedFolders, toggleFolderExpansion, updateFolderName } =
+    useSidePanelStore();
 
   // Debug log to check what currentChatId is received
   // console.log(
@@ -450,6 +559,7 @@ export const FolderListComponent: React.FC<FolderListProps> = ({
           onSelectChat={onSelectChat}
           onRemoveChat={onRemoveChat}
           onUpdateChatTitle={onUpdateChatTitle}
+          onUpdateFolderName={updateFolderName}
           currentChatId={safeCurrentChatId}
         />
       ))}

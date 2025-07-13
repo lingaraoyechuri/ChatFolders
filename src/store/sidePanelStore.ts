@@ -83,6 +83,7 @@ interface SidePanelState {
   setEditingFolderEmoji: (emoji: string) => void;
   handleCancelNewFolder: () => void;
   handleCancelEdit: () => void;
+  updateFolderName: (folderId: string, newName: string) => void;
 }
 
 export const useSidePanelStore = create<SidePanelState>((set, get) => ({
@@ -161,13 +162,26 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       selectedEmoji: folder.emoji,
     });
   },
+  updateFolderName: (folderId: string, newName: string) => {
+    const folder = get().folders.find((f) => f.id === folderId);
+    if (folder && newName.trim() !== "" && newName.trim() !== folder.name) {
+      const updatedFolder: Folder = {
+        ...folder,
+        name: newName.trim(),
+      };
+      get().updateFolder(updatedFolder);
+    }
+  },
   handleDeleteFolder: (folderId) => {
     get().deleteFolder(folderId);
     set({ activeDropdown: null });
   },
   openAddChatsModal: (folderId, event) => {
     console.log(`Store: openAddChatsModal called with folderId = ${folderId}`);
-    event.stopPropagation();
+    // Safely call stopPropagation if it exists
+    if (event && typeof event.stopPropagation === "function") {
+      event.stopPropagation();
+    }
     const folder = get().folders.find((f) => f.id === folderId);
     if (folder) {
       console.log(`Store: Found folder ${folder.name} with ID ${folder.id}`);

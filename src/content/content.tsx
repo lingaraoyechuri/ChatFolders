@@ -575,6 +575,14 @@ const App: React.FC = () => {
     selectedFolder,
   } = useSidePanelStore();
 
+  // Debug logging for modal state
+  React.useEffect(() => {
+    console.log(
+      `App Debug: showAddChatsModal = ${showAddChatsModal}, selectedFolder =`,
+      selectedFolder
+    );
+  }, [showAddChatsModal, selectedFolder]);
+
   const handleOnQuestionClick = (question: string) => {
     const chatContainer = document.querySelector("main");
     if (!chatContainer) return;

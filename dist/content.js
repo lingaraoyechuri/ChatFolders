@@ -67476,7 +67476,6 @@ const FolderCard = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].div
   border-radius: 8px;
   background-color: #1e1f23;
   margin-bottom: 12px;
-  overflow: hidden;
 `;
 const FolderHeader = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].div `
   display: flex;
@@ -67508,6 +67507,20 @@ const FolderName = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].spa
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
+const FolderNameInput = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].input `
+  font-size: 14px;
+  color: white;
+  background-color: #2d2d33;
+  border: 1px solid #37373d;
+  border-radius: 4px;
+  padding: 4px 8px;
+  width: 100px;
+  outline: none;
+
+  &:focus {
+    border-color: #57606a;
+  }
+`;
 const FolderCount = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].span `
   margin-left: 8px;
   color: #9ca3af;
@@ -67517,6 +67530,7 @@ const FolderActions = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  position: relative;
 `;
 const ActionButton = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].button `
   background: none;
@@ -67596,21 +67610,33 @@ const RemoveButton = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].b
 const Dropdown = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].div `
   position: absolute;
   right: 0;
-  top: 30px;
+  bottom: 100%;
   background-color: #2d2d33;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 999;
-  width: 160px;
+  width: 140px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 `;
 const DropdownItem = styled_components__WEBPACK_IMPORTED_MODULE_3__["default"].div `
   padding: 10px 16px;
   cursor: pointer;
   color: #d1d5db;
+  font-size: 13px;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.07);
+  }
+
+  &:first-child {
+    border-radius: 8px 8px 0 0;
+  }
+
+  &:last-child {
+    border-radius: 0 0 8px 8px;
   }
 `;
 // Dropdown Component
@@ -67618,10 +67644,45 @@ const FolderDropdown = ({ onEdit, onDelete, onAddChats, }) => {
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(Dropdown, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: onEdit, children: "Edit folder" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: onAddChats, children: "Add chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: onDelete, children: "Delete folder" })] }));
 };
 // Individual Folder Component
-const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, currentChatId, }) => {
+const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, onUpdateFolderName, currentChatId, }) => {
     const [showDropdown, setShowDropdown] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+    const [isEditing, setIsEditing] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
+    const [editName, setEditName] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(folder.name);
+    const dropdownRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const buttonRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const inputRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    // Add click outside handler to close dropdown
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        const handleClickOutside = (event) => {
+            var _a, _b;
+            if (showDropdown) {
+                // Check if click is outside both the button and dropdown
+                const target = event.target;
+                const isClickInsideDropdown = (_a = dropdownRef.current) === null || _a === void 0 ? void 0 : _a.contains(target);
+                const isClickInsideButton = (_b = buttonRef.current) === null || _b === void 0 ? void 0 : _b.contains(target);
+                if (!isClickInsideDropdown && !isClickInsideButton) {
+                    setShowDropdown(false);
+                }
+            }
+        };
+        if (showDropdown) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [showDropdown]);
+    // Focus input when editing starts
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        if (isEditing && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [isEditing]);
     const handleToggleExpand = () => {
-        onToggleExpand();
+        if (!isEditing) {
+            onToggleExpand();
+        }
     };
     const handleToggleDropdown = (e) => {
         e.stopPropagation();
@@ -67629,7 +67690,28 @@ const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onD
     };
     const handleEdit = () => {
         setShowDropdown(false);
-        onEditFolder(folder.id);
+        setIsEditing(true);
+        setEditName(folder.name);
+    };
+    const handleSaveEdit = () => {
+        if (editName.trim() !== "" && editName.trim() !== folder.name) {
+            if (onUpdateFolderName) {
+                onUpdateFolderName(folder.id, editName);
+            }
+        }
+        setIsEditing(false);
+    };
+    const handleCancelEdit = () => {
+        setEditName(folder.name);
+        setIsEditing(false);
+    };
+    const handleKeyDown = (e) => {
+        if (e.key === "Enter") {
+            handleSaveEdit();
+        }
+        else if (e.key === "Escape") {
+            handleCancelEdit();
+        }
     };
     const handleDelete = () => {
         setShowDropdown(false);
@@ -67653,7 +67735,7 @@ const FolderComponent = ({ folder, isExpanded, onToggleExpand, onEditFolder, onD
             console.error("onRemoveChat function is not defined");
         }
     };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCard, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderHeader, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderTitle, { onClick: handleToggleExpand, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderEmoji, { children: folder.emoji }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderName, { children: folder.name }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCount, { children: ["#", folder.conversations.length] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderActions, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { onClick: handleEdit, children: "\u270E" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { onClick: handleDelete, children: "\uD83D\uDDD1\uFE0F" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { onClick: handleAddChats, children: "+" })] })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatsContainer, { children: folder.conversations.map((chat) => {
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCard, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderHeader, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderTitle, { onClick: handleToggleExpand, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderEmoji, { children: folder.emoji }), isEditing ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderNameInput, { ref: inputRef, value: editName, onChange: (e) => setEditName(e.target.value), onKeyDown: handleKeyDown, onBlur: handleSaveEdit })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderName, { children: folder.name })), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderCount, { children: ["#", folder.conversations.length] })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(FolderActions, { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ActionButton, { ref: buttonRef, onClick: handleToggleDropdown, children: "\u22EF" }), showDropdown && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(Dropdown, { ref: dropdownRef, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: handleEdit, children: "Edit folder" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: handleAddChats, children: "Add chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(DropdownItem, { onClick: handleDelete, children: "Delete folder" })] }))] })] }), isExpanded && ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(ChatsContainer, { children: folder.conversations.map((chat) => {
                     // Ensure currentChatId is a valid string for comparison
                     // Only show chat as active if currentChatId is a valid string and matches
                     const isActive = currentChatId === chat.id;
@@ -67674,7 +67756,7 @@ const NewFolderButtonComponent = ({ onClick, label = "New Folder", }) => {
 // Folder List Component
 const FolderListComponent = ({ folders, onEditFolder, onDeleteFolder, onAddChats, onSelectChat, onRemoveChat, onUpdateChatTitle, currentChatId, }) => {
     // Use expandedFolders from the store instead of local state
-    const { expandedFolders, toggleFolderExpansion } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore)();
+    const { expandedFolders, toggleFolderExpansion, updateFolderName } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore)();
     // Debug log to check what currentChatId is received
     // console.log(
     //   `FolderListComponent Debug: received currentChatId = ${currentChatId}`
@@ -67695,7 +67777,7 @@ const FolderListComponent = ({ folders, onEditFolder, onDeleteFolder, onAddChats
     //     `FolderListComponent: currentChatId changed to ${currentChatId}`
     //   );
     // }, [currentChatId]);
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderContainer, { children: folders.map((folder) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderComponent, { folder: folder, isExpanded: expandedFolders[folder.id] || false, onToggleExpand: () => toggleFolderExpansion(folder.id), onEditFolder: onEditFolder, onDeleteFolder: onDeleteFolder, onAddChats: onAddChats, onSelectChat: onSelectChat, onRemoveChat: onRemoveChat, onUpdateChatTitle: onUpdateChatTitle, currentChatId: safeCurrentChatId }, folder.id))) }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderContainer, { children: folders.map((folder) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(FolderComponent, { folder: folder, isExpanded: expandedFolders[folder.id] || false, onToggleExpand: () => toggleFolderExpansion(folder.id), onEditFolder: onEditFolder, onDeleteFolder: onDeleteFolder, onAddChats: onAddChats, onSelectChat: onSelectChat, onRemoveChat: onRemoveChat, onUpdateChatTitle: onUpdateChatTitle, onUpdateFolderName: updateFolderName, currentChatId: safeCurrentChatId }, folder.id))) }));
 };
 
 
@@ -68148,12 +68230,21 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
             newFolderName: folder.name,
             selectedEmoji: folder.emoji,
         });
+    }, updateFolderName: (folderId, newName) => {
+        const folder = get().folders.find((f) => f.id === folderId);
+        if (folder && newName.trim() !== "" && newName.trim() !== folder.name) {
+            const updatedFolder = Object.assign(Object.assign({}, folder), { name: newName.trim() });
+            get().updateFolder(updatedFolder);
+        }
     }, handleDeleteFolder: (folderId) => {
         get().deleteFolder(folderId);
         set({ activeDropdown: null });
     }, openAddChatsModal: (folderId, event) => {
         console.log(`Store: openAddChatsModal called with folderId = ${folderId}`);
-        event.stopPropagation();
+        // Safely call stopPropagation if it exists
+        if (event && typeof event.stopPropagation === "function") {
+            event.stopPropagation();
+        }
         const folder = get().folders.find((f) => f.id === folderId);
         if (folder) {
             console.log(`Store: Found folder ${folder.name} with ID ${folder.id}`);
@@ -69318,6 +69409,10 @@ const App = () => {
         }
     }, []);
     const { setShowNewFolderModal, showNewFolderModal, showFolderSelectionModal, selectedChats, showAddChatsModal, selectedFolder, } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore)();
+    // Debug logging for modal state
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        console.log(`App Debug: showAddChatsModal = ${showAddChatsModal}, selectedFolder =`, selectedFolder);
+    }, [showAddChatsModal, selectedFolder]);
     const handleOnQuestionClick = (question) => {
         var _a;
         const chatContainer = document.querySelector("main");
