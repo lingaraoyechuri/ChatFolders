@@ -62,7 +62,7 @@ interface SidePanelState {
   handleAddChatToFolders: () => void;
   closeAddChatsModal: () => void;
   toggleChatSelection: (chatId: string) => void;
-  getAvailableChats: () => Conversation[];
+  getAvailableChats: () => Promise<Conversation[]>;
   // New actions for FolderItem
   setEditingFolderId: (id: string | null) => void;
   toggleFolderExpansion: (folderId: string) => void;
@@ -244,168 +244,335 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
     })),
   getAvailableChats: () => {
     const { folders, selectedFolder } = get();
-    if (!selectedFolder) return [];
+    console.log("getAvailableChats: Function called");
+    console.log("getAvailableChats: selectedFolder =", selectedFolder);
+    console.log("getAvailableChats: folders count =", folders.length);
 
-    // Get all chat IDs that are already in any folder
-    const existingChatIds = new Set(
-      folders.flatMap((folder) => folder.conversations.map((conv) => conv.id))
-    );
-
-    // More comprehensive selectors to find chat links
-    const chatSelectors = [
-      'a[href^="/c/"]', // Standard chat links
-      'a[href*="/c/"]', // Any link containing /c/
-      '[data-testid*="chat"] a[href*="/c/"]', // Chat links in test containers
-      'nav a[href*="/c/"]', // Chat links in navigation
-      '.group a[href*="/c/"]', // Chat links in group containers
-      'a[class*="group"]', // Links with group class
-      "a[data-fill]", // Links with data-fill attribute (like in your snippet)
-      'a[class*="__menu-item"]', // Menu item links
-      'a[class*="hoverable"]', // Hoverable links
-      'a[class*="truncate"]', // Links with truncate class
-      'a[class*="flex"]', // Links with flex class
-      'a[class*="min-w-0"]', // Links with min-w-0 class
-      'a[class*="grow"]', // Links with grow class
-      'a[class*="items-center"]', // Links with items-center class
-      'a[class*="gap-2.5"]', // Links with gap-2.5 class
-    ];
-
-    let allChatLinks: Element[] = [];
-
-    // Collect all chat links from different selectors
-    chatSelectors.forEach((selector) => {
-      try {
-        const links = Array.from(document.querySelectorAll(selector));
-        allChatLinks = [...allChatLinks, ...links];
-      } catch (error) {
-        console.warn(`Failed to query selector: ${selector}`, error);
-      }
-    });
-
-    // Also try to find all links in the navigation area
-    const navElements = document.querySelectorAll(
-      'nav, [role="navigation"], [class*="sidebar"], [class*="nav"]'
-    );
-    navElements.forEach((nav) => {
-      try {
-        const navLinks = Array.from(nav.querySelectorAll('a[href*="/c/"]'));
-        allChatLinks = [...allChatLinks, ...navLinks];
-      } catch (error) {
-        console.warn(`Failed to query nav element:`, error);
-      }
-    });
-
-    // Remove duplicates based on href
-    const uniqueLinks = allChatLinks.filter((link, index, self) => {
-      const href = link.getAttribute("href");
-      return (
-        href && self.findIndex((l) => l.getAttribute("href") === href) === index
+    if (!selectedFolder) {
+      console.log(
+        "getAvailableChats: No selectedFolder, returning empty array"
       );
-    });
+      return Promise.resolve([]);
+    }
 
-    console.log(`Found ${uniqueLinks.length} unique chat links in DOM`);
+    // Get all chat IDs that are already in the CURRENT folder (not all folders)
+    const existingChatIds = new Set(
+      selectedFolder.conversations.map((conv) => conv.id)
+    );
+    console.log(
+      "getAvailableChats: Existing chat IDs in current folder:",
+      Array.from(existingChatIds)
+    );
 
-    // Debug: Log all found links for troubleshooting
-    uniqueLinks.forEach((link, index) => {
-      const href = link.getAttribute("href");
-      const text = link.textContent?.trim();
-      const title = link.getAttribute("title");
-      const classes = link.getAttribute("class");
-      console.log(`Link ${index + 1}:`, {
-        href,
-        text,
-        title,
-        classes,
-        tagName: link.tagName,
-        attributes: Array.from(link.attributes)
-          .map((attr) => `${attr.name}="${attr.value}"`)
-          .join(", "),
+    console.log("getAvailableChats: Starting to load all chats...");
+
+    // Function to load all chats by scrolling
+    const loadAllChats = async (): Promise<Element[]> => {
+      return new Promise((resolve) => {
+        // Find the chat list container
+        const chatListContainer =
+          document.querySelector('nav[class*="flex-col"]') ||
+          document.querySelector('[role="navigation"]') ||
+          document.querySelector('[class*="sidebar"]');
+
+        console.log(
+          "getAvailableChats: Chat list container found:",
+          !!chatListContainer
+        );
+
+        if (!chatListContainer) {
+          console.log("No chat list container found");
+          resolve([]);
+          return;
+        }
+
+        console.log("Starting to load all chats by scrolling...");
+
+        let previousHeight = 0;
+        let scrollAttempts = 0;
+        const maxScrollAttempts = 50; // Prevent infinite scrolling
+        const scrollInterval = 100; // Scroll every 100ms
+
+        const scrollToLoad = () => {
+          // Scroll to the bottom of the chat list
+          chatListContainer.scrollTop = chatListContainer.scrollHeight;
+
+          // Check if we've reached the bottom (no more content to load)
+          const currentHeight = chatListContainer.scrollHeight;
+
+          if (
+            currentHeight === previousHeight ||
+            scrollAttempts >= maxScrollAttempts
+          ) {
+            console.log(
+              `Finished loading chats. Height: ${currentHeight}, Attempts: ${scrollAttempts}`
+            );
+
+            // Wait a bit more for any final loading to complete
+            setTimeout(() => {
+              // Now collect all the chat links
+              const allChatLinks = collectAllChatLinks();
+              console.log(
+                "getAvailableChats: Collected chat links after scrolling:",
+                allChatLinks.length
+              );
+              resolve(allChatLinks);
+            }, 500);
+
+            return;
+          }
+
+          previousHeight = currentHeight;
+          scrollAttempts++;
+
+          // Continue scrolling
+          setTimeout(scrollToLoad, scrollInterval);
+        };
+
+        // Start the scrolling process
+        scrollToLoad();
       });
+    };
+
+    // Function to collect all chat links after scrolling
+    const collectAllChatLinks = (): Element[] => {
+      console.log("getAvailableChats: collectAllChatLinks called");
+
+      // More comprehensive selectors to find chat links
+      const chatSelectors = [
+        'a[href^="/c/"]', // Standard chat links
+        'a[href*="/c/"]', // Any link containing /c/
+        '[data-testid*="chat"] a[href*="/c/"]', // Chat links in test containers
+        'nav a[href*="/c/"]', // Chat links in navigation
+        '.group a[href*="/c/"]', // Chat links in group containers
+        'a[class*="group"]', // Links with group class
+        "a[data-fill]", // Links with data-fill attribute (like in your snippet)
+        'a[class*="__menu-item"]', // Menu item links
+        'a[class*="hoverable"]', // Hoverable links
+        'a[class*="truncate"]', // Links with truncate class
+        'a[class*="flex"]', // Links with flex class
+        'a[class*="min-w-0"]', // Links with min-w-0 class
+        'a[class*="grow"]', // Links with grow class
+        'a[class*="items-center"]', // Links with items-center class
+        'a[class*="gap-2.5"]', // Links with gap-2.5 class
+      ];
+
+      let allChatLinks: Element[] = [];
+
+      // Collect all chat links from different selectors
+      chatSelectors.forEach((selector) => {
+        try {
+          const links = Array.from(document.querySelectorAll(selector));
+          console.log(
+            `getAvailableChats: Selector "${selector}" found ${links.length} links`
+          );
+          allChatLinks = [...allChatLinks, ...links];
+        } catch (error) {
+          console.warn(`Failed to query selector: ${selector}`, error);
+        }
+      });
+
+      // Also try to find all links in the navigation area
+      const navElements = document.querySelectorAll(
+        'nav, [role="navigation"], [class*="sidebar"], [class*="nav"]'
+      );
+      console.log("getAvailableChats: Found nav elements:", navElements.length);
+
+      navElements.forEach((nav) => {
+        try {
+          const navLinks = Array.from(nav.querySelectorAll('a[href*="/c/"]'));
+          console.log(
+            `getAvailableChats: Nav element found ${navLinks.length} chat links`
+          );
+          allChatLinks = [...allChatLinks, ...navLinks];
+        } catch (error) {
+          console.warn(`Failed to query nav element:`, error);
+        }
+      });
+
+      // Remove duplicates based on href
+      const uniqueLinks = allChatLinks.filter((link, index, self) => {
+        const href = link.getAttribute("href");
+        return (
+          href &&
+          self.findIndex((l) => l.getAttribute("href") === href) === index
+        );
+      });
+
+      console.log(
+        `Found ${uniqueLinks.length} unique chat links in DOM after scrolling`
+      );
+
+      return uniqueLinks;
+    };
+
+    // Use the async function to load all chats
+    return new Promise<Conversation[]>((resolve) => {
+      // Add a timeout to prevent infinite waiting
+      const timeout = setTimeout(() => {
+        console.log(
+          "getAvailableChats: Timeout reached, using fallback method"
+        );
+        const fallbackLinks = collectAllChatLinks();
+        const fallbackChats = processChatLinks(fallbackLinks);
+        resolve(fallbackChats);
+      }, 15000); // 15 second timeout
+
+      loadAllChats()
+        .then((uniqueLinks) => {
+          clearTimeout(timeout);
+          const availableChats = processChatLinks(uniqueLinks);
+          console.log(
+            `Available chats for folder "${selectedFolder.name}":`,
+            availableChats.length
+          );
+          resolve(availableChats);
+        })
+        .catch((error) => {
+          clearTimeout(timeout);
+          console.error(
+            "getAvailableChats: Error during scrolling, using fallback:",
+            error
+          );
+          const fallbackLinks = collectAllChatLinks();
+          const fallbackChats = processChatLinks(fallbackLinks);
+          resolve(fallbackChats);
+        });
     });
 
-    // Create Conversation objects for each chat
-    const availableChats = uniqueLinks
-      .map((link) => {
-        const href = link.getAttribute("href");
-        if (!href) return null;
+    // Helper function to process chat links
+    function processChatLinks(uniqueLinks: Element[]): Conversation[] {
+      console.log(
+        "getAvailableChats: processChatLinks called with",
+        uniqueLinks.length,
+        "links"
+      );
 
-        // Extract chat ID from various URL patterns
-        const chatIdMatch = href.match(/\/c\/([^\/\?]+)/);
-        if (!chatIdMatch) return null;
+      const processedChats = uniqueLinks
+        .map((link) => {
+          const href = link.getAttribute("href");
+          if (!href) {
+            console.log("getAvailableChats: Link has no href, skipping");
+            return null;
+          }
 
-        const chatId = chatIdMatch[1];
-        if (!chatId || existingChatIds.has(chatId)) return null;
+          // Extract chat ID from various URL patterns
+          const chatIdMatch = href.match(/\/c\/([^\/\?]+)/);
+          if (!chatIdMatch) {
+            console.log(
+              "getAvailableChats: Link href doesn't match chat pattern:",
+              href
+            );
+            return null;
+          }
 
-        // Try to get the title from multiple sources
-        let title = link.textContent?.trim();
+          const chatId = chatIdMatch[1];
+          if (!chatId) {
+            console.log(
+              "getAvailableChats: No chat ID extracted from href:",
+              href
+            );
+            return null;
+          }
 
-        // If no text content, try to find title in child elements
-        if (!title || title === chatId) {
-          // Look for title in various child elements
-          const titleSelectors = [
-            "[title]",
-            "[data-title]",
-            ".title",
-            ".chat-title",
-            ".truncate",
-            "span",
-            "div",
-            "[class*='truncate']",
-            "[class*='title']",
-          ];
+          if (existingChatIds.has(chatId)) {
+            console.log(
+              "getAvailableChats: Chat ID already in current folder, skipping:",
+              chatId
+            );
+            return null;
+          }
 
-          for (const selector of titleSelectors) {
-            const titleElement = link.querySelector(selector);
-            if (titleElement) {
-              const elementTitle =
-                titleElement.getAttribute("title") ||
-                titleElement.getAttribute("data-title") ||
-                titleElement.textContent?.trim();
+          // Try to get the title from multiple sources
+          let title = link.textContent?.trim();
 
-              if (
-                elementTitle &&
-                elementTitle !== chatId &&
-                elementTitle.length > 0
-              ) {
-                title = elementTitle;
-                break;
+          // If no text content, try to find title in child elements
+          if (!title || title === chatId) {
+            // Look for title in various child elements
+            const titleSelectors = [
+              "[title]",
+              "[data-title]",
+              ".title",
+              ".chat-title",
+              ".truncate",
+              "span",
+              "div",
+              "[class*='truncate']",
+              "[class*='title']",
+            ];
+
+            for (const selector of titleSelectors) {
+              const titleElement = link.querySelector(selector);
+              if (titleElement) {
+                const elementTitle =
+                  titleElement.getAttribute("title") ||
+                  titleElement.getAttribute("data-title") ||
+                  titleElement.textContent?.trim();
+
+                if (
+                  elementTitle &&
+                  elementTitle !== chatId &&
+                  elementTitle.length > 0
+                ) {
+                  title = elementTitle;
+                  break;
+                }
               }
             }
           }
-        }
 
-        // Also try to get title from the link's own attributes
-        if (!title || title === chatId) {
-          title =
-            link.getAttribute("title") ||
-            link.getAttribute("data-title") ||
-            link.getAttribute("aria-label") ||
-            undefined;
-        }
+          // Also try to get title from the link's own attributes
+          if (!title || title === chatId) {
+            title =
+              link.getAttribute("title") ||
+              link.getAttribute("data-title") ||
+              link.getAttribute("aria-label") ||
+              undefined;
+          }
 
-        // Fallback to a formatted chat ID if no title found
-        if (!title || title === chatId) {
-          title = `Chat ${chatId}`;
-        }
+          // Fallback to a formatted chat ID if no title found
+          if (!title || title === chatId) {
+            title = `Chat ${chatId}`;
+          }
 
-        console.log(`Found chat: ${title} (${chatId})`);
+          // Find which folders this chat is already in
+          const folderIds = folders
+            .filter((folder) =>
+              folder.conversations.some((conv) => conv.id === chatId)
+            )
+            .map((folder) => folder.id);
 
-        return {
-          id: chatId,
-          title,
-          url: `/c/${chatId}`,
-          preview: "",
-          platform: "chatgpt" as Platform,
-          timestamp: Date.now(),
-        };
-      })
-      .filter((chat): chat is Conversation => chat !== null);
+          console.log(
+            `Found chat: ${title} (${chatId}) - In folders: ${folderIds.join(
+              ", "
+            )}`
+          );
 
-    console.log(
-      `Available chats for folder "${selectedFolder.name}":`,
-      availableChats.length
-    );
-    return availableChats;
+          const conversation: Conversation = {
+            id: chatId,
+            title,
+            url: `/c/${chatId}`,
+            preview: "",
+            platform: "chatgpt" as Platform,
+            timestamp: Date.now(),
+          };
+
+          // Only add folderIds if the chat is in any folders
+          if (folderIds.length > 0) {
+            conversation.folderIds = folderIds;
+          }
+
+          return conversation;
+        })
+        .filter((chat): chat is Conversation => chat !== null);
+
+      console.log(
+        "getAvailableChats: processChatLinks returning",
+        processedChats.length,
+        "chats"
+      );
+      return processedChats;
+    }
   },
 
   handleSubmitNewFolder: () => {
@@ -477,8 +644,15 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       ],
     };
 
+    // Update the folder in the store
     get().updateFolder(updatedFolder);
-    set({ selectedChats: [], showAddChatsModal: false });
+
+    // Update the selectedFolder to reflect the new state
+    set({
+      selectedFolder: updatedFolder,
+      selectedChats: [],
+      showAddChatsModal: false,
+    });
   },
 
   handleAddChatToFolders: () => {

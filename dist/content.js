@@ -67299,15 +67299,24 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/DialogContent/DialogContent.js");
 /* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/TextField/TextField.js");
 /* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/InputAdornment/InputAdornment.js");
-/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/List/List.js");
-/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/ListItem/ListItem.js");
-/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/Checkbox/Checkbox.js");
-/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/ListItemText/ListItemText.js");
-/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/DialogActions/DialogActions.js");
-/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/Button/Button.js");
+/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/Button/Button.js");
+/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/List/List.js");
+/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/ListItem/ListItem.js");
+/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/Checkbox/Checkbox.js");
+/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/ListItemText/ListItemText.js");
+/* harmony import */ var _mui_material__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! @mui/material */ "./node_modules/@mui/material/DialogActions/DialogActions.js");
 /* harmony import */ var _mui_icons_material__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @mui/icons-material */ "./node_modules/@mui/icons-material/esm/Close.js");
 /* harmony import */ var _mui_icons_material__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! @mui/icons-material */ "./node_modules/@mui/icons-material/esm/Search.js");
 /* harmony import */ var _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../store/sidePanelStore */ "./src/store/sidePanelStore.ts");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 
 
 
@@ -67315,29 +67324,91 @@ __webpack_require__.r(__webpack_exports__);
 
 const AddChatsModal = ({ folder, onClose, }) => {
     const { showAddChatsModal, selectedChats, searchQuery, closeAddChatsModal, toggleChatSelection, addChatsToFolder, setSearchQuery, getAvailableChats, } = (0,_store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore)();
+    const [availableChats, setAvailableChats] = react__WEBPACK_IMPORTED_MODULE_1___default().useState([]);
+    const [isLoading, setIsLoading] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
+    const [hasInitialized, setHasInitialized] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
     // Refresh available chats when modal opens
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
-        if (showAddChatsModal) {
+        console.log("AddChatsModal: useEffect triggered", {
+            showAddChatsModal,
+            hasInitialized,
+            folder: folder === null || folder === void 0 ? void 0 : folder.name,
+        });
+        if (showAddChatsModal && !hasInitialized) {
             console.log("AddChatsModal: Modal opened, refreshing available chats...");
-            // Add a small delay to ensure all chats are loaded
-            const timer = setTimeout(() => {
-                const chats = getAvailableChats();
-                console.log("AddChatsModal: Available chats count:", chats.length);
-            }, 500);
-            return () => clearTimeout(timer);
+            console.log("AddChatsModal: showAddChatsModal =", showAddChatsModal);
+            console.log("AddChatsModal: selectedFolder =", folder);
+            console.log("AddChatsModal: hasInitialized =", hasInitialized);
+            setIsLoading(true);
+            setHasInitialized(true);
+            // Call getAvailableChats immediately
+            const loadChats = () => __awaiter(void 0, void 0, void 0, function* () {
+                try {
+                    console.log("AddChatsModal: Starting to load chats...");
+                    console.log("AddChatsModal: Calling getAvailableChats()...");
+                    console.log("AddChatsModal: getAvailableChats function:", typeof getAvailableChats);
+                    if (typeof getAvailableChats === "function") {
+                        const chats = yield getAvailableChats();
+                        console.log("AddChatsModal: Successfully loaded chats:", chats.length, chats);
+                        setAvailableChats(chats);
+                    }
+                    else {
+                        console.error("AddChatsModal: getAvailableChats is not a function:", getAvailableChats);
+                        setAvailableChats([]);
+                    }
+                }
+                catch (error) {
+                    console.error("AddChatsModal: Error loading chats:", error);
+                    // Set empty array on error to prevent infinite loading
+                    setAvailableChats([]);
+                }
+                finally {
+                    console.log("AddChatsModal: Finished loading, setting isLoading to false");
+                    setIsLoading(false);
+                }
+            });
+            // Call immediately
+            loadChats();
+            // Also add a timeout to prevent infinite loading
+            const timeoutTimer = setTimeout(() => {
+                console.log("AddChatsModal: Loading timeout reached, stopping loading");
+                setIsLoading(false);
+                if (availableChats.length === 0) {
+                    setAvailableChats([]);
+                }
+            }, 30000); // 30 second timeout
+            return () => {
+                clearTimeout(timeoutTimer);
+            };
         }
-    }, [showAddChatsModal, getAvailableChats]);
-    const handleRefresh = () => {
+    }, [showAddChatsModal, hasInitialized, folder, getAvailableChats]);
+    // Reset initialization flag when modal closes
+    react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
+        if (!showAddChatsModal) {
+            setHasInitialized(false);
+            setAvailableChats([]);
+            setIsLoading(false);
+        }
+    }, [showAddChatsModal]);
+    const handleRefresh = () => __awaiter(void 0, void 0, void 0, function* () {
         console.log("AddChatsModal: Manual refresh triggered");
-        // Force a re-render by calling getAvailableChats
-        const chats = getAvailableChats();
-        console.log("AddChatsModal: Refreshed chats count:", chats.length);
-    };
+        setIsLoading(true);
+        try {
+            const chats = yield getAvailableChats();
+            setAvailableChats(chats);
+            console.log("AddChatsModal: Refreshed chats count:", chats.length);
+        }
+        catch (error) {
+            console.error("AddChatsModal: Error refreshing chats:", error);
+        }
+        finally {
+            setIsLoading(false);
+        }
+    });
     const handleClose = () => {
         closeAddChatsModal();
         onClose === null || onClose === void 0 ? void 0 : onClose();
     };
-    const availableChats = getAvailableChats();
     const filteredChats = availableChats.filter((chat) => chat.title.toLowerCase().includes(searchQuery.toLowerCase()));
     console.log("AddChatsModal: Rendering with", availableChats.length, "available chats,", filteredChats.length, "filtered chats");
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_3__["default"], { open: showAddChatsModal, onClose: handleClose, maxWidth: "sm", fullWidth: true, PaperProps: {
@@ -67381,14 +67452,57 @@ const AddChatsModal = ({ folder, onClose, }) => {
                         }, InputProps: {
                             startAdornment: ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_9__["default"], { position: "start", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_icons_material__WEBPACK_IMPORTED_MODULE_10__["default"], { sx: { color: "#8a8d91" } }) })),
                             endAdornment: ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_9__["default"], { position: "end", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_5__["default"], { onClick: handleRefresh, sx: { color: "#8a8d91" }, title: "Refresh available chats", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "20", height: "20", viewBox: "0 0 20 20", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M10 3a7 7 0 0 0-7 7H1l3.5 3.5L8 10H6a4 4 0 1 1 4 4v2a6 6 0 1 0-6-6H2a8 8 0 1 1 8 8v-2a6 6 0 0 0 0-12z" }) }) }) })),
-                        } }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
+                        } }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: { marginBottom: "16px" }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: handleRefresh, disabled: isLoading, startIcon: isLoading ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", style: {
+                                        animation: "spin 1s linear infinite",
+                                        transformOrigin: "center",
+                                    }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("circle", { cx: "8", cy: "8", r: "6", stroke: "#3a84ff", strokeWidth: "2", strokeDasharray: "18.85", strokeDashoffset: "18.85", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dasharray", dur: "2s", values: "0 18.85;9.425 9.425;0 18.85", repeatCount: "indefinite" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dashoffset", dur: "2s", values: "0;-9.425;-18.85", repeatCount: "indefinite" })] }) })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M8 2a6 6 0 0 0-6 6H1l2.5 2.5L6 8H4a4 4 0 1 1 4 4v1.5a5.5 5.5 0 1 0-5.5-5.5H2a6 6 0 1 1 6 6v-1.5a4.5 4.5 0 0 0 0-9z" }) })), sx: {
+                                    color: "#3a84ff",
+                                    borderColor: "#3a84ff",
+                                    "&:hover": {
+                                        borderColor: "#2970e6",
+                                        backgroundColor: "rgba(58, 132, 255, 0.1)",
+                                    },
+                                    "&.Mui-disabled": {
+                                        color: "#8a8d91",
+                                        borderColor: "#2a2f3a",
+                                    },
+                                    fontSize: "14px",
+                                    textTransform: "none",
+                                    padding: "8px 16px",
+                                }, children: isLoading ? "Loading All Chats..." : "Load All Chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: () => {
+                                    console.log("AddChatsModal: Debug button clicked");
+                                    console.log("AddChatsModal: getAvailableChats function:", typeof getAvailableChats);
+                                    if (typeof getAvailableChats === "function") {
+                                        getAvailableChats()
+                                            .then((chats) => {
+                                            console.log("AddChatsModal: Debug - getAvailableChats returned:", chats.length, chats);
+                                        })
+                                            .catch((error) => {
+                                            console.error("AddChatsModal: Debug - getAvailableChats error:", error);
+                                        });
+                                    }
+                                }, sx: {
+                                    color: "#ff6b6b",
+                                    borderColor: "#ff6b6b",
+                                    marginLeft: "8px",
+                                    fontSize: "12px",
+                                    textTransform: "none",
+                                    padding: "4px 8px",
+                                }, children: "Debug" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
                             fontSize: "12px",
                             color: "#8a8d91",
                             marginBottom: "8px",
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
-                        }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Available chats: ", availableChats.length] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Filtered chats: ", filteredChats.length] }), searchQuery && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Search: \"", searchQuery, "\""] })] }), filteredChats.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { sx: {
+                        }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Available chats: ", availableChats.length] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Filtered chats: ", filteredChats.length] }), isLoading && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Loading..." }), searchQuery && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Search: \"", searchQuery, "\""] })] }), isLoading ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
+                            textAlign: "center",
+                            padding: "40px",
+                            color: "#8a8d91",
+                        }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { marginBottom: "16px" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", style: {
+                                        animation: "spin 1s linear infinite",
+                                        transformOrigin: "center",
+                                    }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("circle", { cx: "12", cy: "12", r: "10", stroke: "#3a84ff", strokeWidth: "2", strokeDasharray: "31.416", strokeDashoffset: "31.416", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dasharray", dur: "2s", values: "0 31.416;15.708 15.708;0 31.416", repeatCount: "indefinite" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dashoffset", dur: "2s", values: "0;-15.708;-31.416", repeatCount: "indefinite" })] }) }) }), "Loading all chats...", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { fontSize: "12px", marginTop: "8px" }, children: "This may take a few seconds as we scroll through your chat history" })] })) : filteredChats.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_12__["default"], { sx: {
                             maxHeight: 300,
                             overflow: "auto",
                             "&::-webkit-scrollbar": {
@@ -67401,17 +67515,17 @@ const AddChatsModal = ({ folder, onClose, }) => {
                                 background: "#2a2f3a",
                                 borderRadius: "4px",
                             },
-                        }, children: filteredChats.map((chat) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_12__["default"], { component: "div", onClick: () => toggleChatSelection(chat.id), sx: {
+                        }, children: filteredChats.map((chat) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_13__["default"], { component: "div", onClick: () => toggleChatSelection(chat.id), sx: {
                                 cursor: "pointer",
                                 "&:hover": {
                                     bgcolor: "#262d3d",
                                 },
-                            }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_13__["default"], { checked: selectedChats.includes(chat.id), onChange: () => toggleChatSelection(chat.id), sx: {
+                            }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_14__["default"], { checked: selectedChats.includes(chat.id), onChange: () => toggleChatSelection(chat.id), sx: {
                                         color: "#8a8d91",
                                         "&.Mui-checked": {
                                             color: "#3a84ff",
                                         },
-                                    } }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_14__["default"], { primary: chat.title, secondary: chat.folderIds && chat.folderIds.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "flex gap-1 mt-1 flex-wrap", children: chat.folderIds.map((folderId) => {
+                                    } }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_15__["default"], { primary: chat.title, secondary: chat.folderIds && chat.folderIds.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { className: "flex gap-1 mt-1 flex-wrap", children: chat.folderIds.map((folderId) => {
                                             const folderInfo = _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_2__.useSidePanelStore
                                                 .getState()
                                                 .folders.find((f) => f.id === folderId);
@@ -67429,7 +67543,12 @@ const AddChatsModal = ({ folder, onClose, }) => {
                             textAlign: "center",
                             padding: "20px",
                             color: "#8a8d91",
-                        }, children: "No available chats to add" }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_15__["default"], { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_16__["default"], { onClick: handleClose, sx: { color: "#8a8d91" }, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_16__["default"], { variant: "contained", onClick: addChatsToFolder, disabled: selectedChats.length === 0, sx: {
+                        }, children: availableChats.length === 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { marginBottom: "12px" }, children: "No chats found in the current view" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { fontSize: "12px", marginBottom: "16px" }, children: "Click \"Load All Chats\" above to scroll through your chat history and find all available chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: handleRefresh, size: "small", sx: {
+                                        color: "#3a84ff",
+                                        borderColor: "#3a84ff",
+                                        fontSize: "12px",
+                                        textTransform: "none",
+                                    }, children: "Load All Chats" })] })) : ("No available chats to add") }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_16__["default"], { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { onClick: handleClose, sx: { color: "#8a8d91" }, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "contained", onClick: addChatsToFolder, disabled: selectedChats.length === 0, sx: {
                             bgcolor: "#3a84ff",
                             "&:hover": {
                                 bgcolor: "#2970e6",
@@ -68206,6 +68325,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   useSidePanelStore: () => (/* binding */ useSidePanelStore)
 /* harmony export */ });
 /* harmony import */ var zustand__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! zustand */ "./node_modules/zustand/esm/index.mjs");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 
 // Load initial state from localStorage
 const loadInitialState = () => {
@@ -68314,144 +68442,232 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
             : [...state.selectedChats, chatId],
     })), getAvailableChats: () => {
         const { folders, selectedFolder } = get();
-        if (!selectedFolder)
-            return [];
-        // Get all chat IDs that are already in any folder
-        const existingChatIds = new Set(folders.flatMap((folder) => folder.conversations.map((conv) => conv.id)));
-        // More comprehensive selectors to find chat links
-        const chatSelectors = [
-            'a[href^="/c/"]', // Standard chat links
-            'a[href*="/c/"]', // Any link containing /c/
-            '[data-testid*="chat"] a[href*="/c/"]', // Chat links in test containers
-            'nav a[href*="/c/"]', // Chat links in navigation
-            '.group a[href*="/c/"]', // Chat links in group containers
-            'a[class*="group"]', // Links with group class
-            "a[data-fill]", // Links with data-fill attribute (like in your snippet)
-            'a[class*="__menu-item"]', // Menu item links
-            'a[class*="hoverable"]', // Hoverable links
-            'a[class*="truncate"]', // Links with truncate class
-            'a[class*="flex"]', // Links with flex class
-            'a[class*="min-w-0"]', // Links with min-w-0 class
-            'a[class*="grow"]', // Links with grow class
-            'a[class*="items-center"]', // Links with items-center class
-            'a[class*="gap-2.5"]', // Links with gap-2.5 class
-        ];
-        let allChatLinks = [];
-        // Collect all chat links from different selectors
-        chatSelectors.forEach((selector) => {
-            try {
-                const links = Array.from(document.querySelectorAll(selector));
-                allChatLinks = [...allChatLinks, ...links];
-            }
-            catch (error) {
-                console.warn(`Failed to query selector: ${selector}`, error);
-            }
-        });
-        // Also try to find all links in the navigation area
-        const navElements = document.querySelectorAll('nav, [role="navigation"], [class*="sidebar"], [class*="nav"]');
-        navElements.forEach((nav) => {
-            try {
-                const navLinks = Array.from(nav.querySelectorAll('a[href*="/c/"]'));
-                allChatLinks = [...allChatLinks, ...navLinks];
-            }
-            catch (error) {
-                console.warn(`Failed to query nav element:`, error);
-            }
-        });
-        // Remove duplicates based on href
-        const uniqueLinks = allChatLinks.filter((link, index, self) => {
-            const href = link.getAttribute("href");
-            return (href && self.findIndex((l) => l.getAttribute("href") === href) === index);
-        });
-        console.log(`Found ${uniqueLinks.length} unique chat links in DOM`);
-        // Debug: Log all found links for troubleshooting
-        uniqueLinks.forEach((link, index) => {
-            var _a;
-            const href = link.getAttribute("href");
-            const text = (_a = link.textContent) === null || _a === void 0 ? void 0 : _a.trim();
-            const title = link.getAttribute("title");
-            const classes = link.getAttribute("class");
-            console.log(`Link ${index + 1}:`, {
-                href,
-                text,
-                title,
-                classes,
-                tagName: link.tagName,
-                attributes: Array.from(link.attributes)
-                    .map((attr) => `${attr.name}="${attr.value}"`)
-                    .join(", "),
+        console.log("getAvailableChats: Function called");
+        console.log("getAvailableChats: selectedFolder =", selectedFolder);
+        console.log("getAvailableChats: folders count =", folders.length);
+        if (!selectedFolder) {
+            console.log("getAvailableChats: No selectedFolder, returning empty array");
+            return Promise.resolve([]);
+        }
+        // Get all chat IDs that are already in the CURRENT folder (not all folders)
+        const existingChatIds = new Set(selectedFolder.conversations.map((conv) => conv.id));
+        console.log("getAvailableChats: Existing chat IDs in current folder:", Array.from(existingChatIds));
+        console.log("getAvailableChats: Starting to load all chats...");
+        // Function to load all chats by scrolling
+        const loadAllChats = () => __awaiter(void 0, void 0, void 0, function* () {
+            return new Promise((resolve) => {
+                // Find the chat list container
+                const chatListContainer = document.querySelector('nav[class*="flex-col"]') ||
+                    document.querySelector('[role="navigation"]') ||
+                    document.querySelector('[class*="sidebar"]');
+                console.log("getAvailableChats: Chat list container found:", !!chatListContainer);
+                if (!chatListContainer) {
+                    console.log("No chat list container found");
+                    resolve([]);
+                    return;
+                }
+                console.log("Starting to load all chats by scrolling...");
+                let previousHeight = 0;
+                let scrollAttempts = 0;
+                const maxScrollAttempts = 50; // Prevent infinite scrolling
+                const scrollInterval = 100; // Scroll every 100ms
+                const scrollToLoad = () => {
+                    // Scroll to the bottom of the chat list
+                    chatListContainer.scrollTop = chatListContainer.scrollHeight;
+                    // Check if we've reached the bottom (no more content to load)
+                    const currentHeight = chatListContainer.scrollHeight;
+                    if (currentHeight === previousHeight ||
+                        scrollAttempts >= maxScrollAttempts) {
+                        console.log(`Finished loading chats. Height: ${currentHeight}, Attempts: ${scrollAttempts}`);
+                        // Wait a bit more for any final loading to complete
+                        setTimeout(() => {
+                            // Now collect all the chat links
+                            const allChatLinks = collectAllChatLinks();
+                            console.log("getAvailableChats: Collected chat links after scrolling:", allChatLinks.length);
+                            resolve(allChatLinks);
+                        }, 500);
+                        return;
+                    }
+                    previousHeight = currentHeight;
+                    scrollAttempts++;
+                    // Continue scrolling
+                    setTimeout(scrollToLoad, scrollInterval);
+                };
+                // Start the scrolling process
+                scrollToLoad();
             });
         });
-        // Create Conversation objects for each chat
-        const availableChats = uniqueLinks
-            .map((link) => {
-            var _a, _b;
-            const href = link.getAttribute("href");
-            if (!href)
-                return null;
-            // Extract chat ID from various URL patterns
-            const chatIdMatch = href.match(/\/c\/([^\/\?]+)/);
-            if (!chatIdMatch)
-                return null;
-            const chatId = chatIdMatch[1];
-            if (!chatId || existingChatIds.has(chatId))
-                return null;
-            // Try to get the title from multiple sources
-            let title = (_a = link.textContent) === null || _a === void 0 ? void 0 : _a.trim();
-            // If no text content, try to find title in child elements
-            if (!title || title === chatId) {
-                // Look for title in various child elements
-                const titleSelectors = [
-                    "[title]",
-                    "[data-title]",
-                    ".title",
-                    ".chat-title",
-                    ".truncate",
-                    "span",
-                    "div",
-                    "[class*='truncate']",
-                    "[class*='title']",
-                ];
-                for (const selector of titleSelectors) {
-                    const titleElement = link.querySelector(selector);
-                    if (titleElement) {
-                        const elementTitle = titleElement.getAttribute("title") ||
-                            titleElement.getAttribute("data-title") ||
-                            ((_b = titleElement.textContent) === null || _b === void 0 ? void 0 : _b.trim());
-                        if (elementTitle &&
-                            elementTitle !== chatId &&
-                            elementTitle.length > 0) {
-                            title = elementTitle;
-                            break;
+        // Function to collect all chat links after scrolling
+        const collectAllChatLinks = () => {
+            console.log("getAvailableChats: collectAllChatLinks called");
+            // More comprehensive selectors to find chat links
+            const chatSelectors = [
+                'a[href^="/c/"]', // Standard chat links
+                'a[href*="/c/"]', // Any link containing /c/
+                '[data-testid*="chat"] a[href*="/c/"]', // Chat links in test containers
+                'nav a[href*="/c/"]', // Chat links in navigation
+                '.group a[href*="/c/"]', // Chat links in group containers
+                'a[class*="group"]', // Links with group class
+                "a[data-fill]", // Links with data-fill attribute (like in your snippet)
+                'a[class*="__menu-item"]', // Menu item links
+                'a[class*="hoverable"]', // Hoverable links
+                'a[class*="truncate"]', // Links with truncate class
+                'a[class*="flex"]', // Links with flex class
+                'a[class*="min-w-0"]', // Links with min-w-0 class
+                'a[class*="grow"]', // Links with grow class
+                'a[class*="items-center"]', // Links with items-center class
+                'a[class*="gap-2.5"]', // Links with gap-2.5 class
+            ];
+            let allChatLinks = [];
+            // Collect all chat links from different selectors
+            chatSelectors.forEach((selector) => {
+                try {
+                    const links = Array.from(document.querySelectorAll(selector));
+                    console.log(`getAvailableChats: Selector "${selector}" found ${links.length} links`);
+                    allChatLinks = [...allChatLinks, ...links];
+                }
+                catch (error) {
+                    console.warn(`Failed to query selector: ${selector}`, error);
+                }
+            });
+            // Also try to find all links in the navigation area
+            const navElements = document.querySelectorAll('nav, [role="navigation"], [class*="sidebar"], [class*="nav"]');
+            console.log("getAvailableChats: Found nav elements:", navElements.length);
+            navElements.forEach((nav) => {
+                try {
+                    const navLinks = Array.from(nav.querySelectorAll('a[href*="/c/"]'));
+                    console.log(`getAvailableChats: Nav element found ${navLinks.length} chat links`);
+                    allChatLinks = [...allChatLinks, ...navLinks];
+                }
+                catch (error) {
+                    console.warn(`Failed to query nav element:`, error);
+                }
+            });
+            // Remove duplicates based on href
+            const uniqueLinks = allChatLinks.filter((link, index, self) => {
+                const href = link.getAttribute("href");
+                return (href &&
+                    self.findIndex((l) => l.getAttribute("href") === href) === index);
+            });
+            console.log(`Found ${uniqueLinks.length} unique chat links in DOM after scrolling`);
+            return uniqueLinks;
+        };
+        // Use the async function to load all chats
+        return new Promise((resolve) => {
+            // Add a timeout to prevent infinite waiting
+            const timeout = setTimeout(() => {
+                console.log("getAvailableChats: Timeout reached, using fallback method");
+                const fallbackLinks = collectAllChatLinks();
+                const fallbackChats = processChatLinks(fallbackLinks);
+                resolve(fallbackChats);
+            }, 15000); // 15 second timeout
+            loadAllChats()
+                .then((uniqueLinks) => {
+                clearTimeout(timeout);
+                const availableChats = processChatLinks(uniqueLinks);
+                console.log(`Available chats for folder "${selectedFolder.name}":`, availableChats.length);
+                resolve(availableChats);
+            })
+                .catch((error) => {
+                clearTimeout(timeout);
+                console.error("getAvailableChats: Error during scrolling, using fallback:", error);
+                const fallbackLinks = collectAllChatLinks();
+                const fallbackChats = processChatLinks(fallbackLinks);
+                resolve(fallbackChats);
+            });
+        });
+        // Helper function to process chat links
+        function processChatLinks(uniqueLinks) {
+            console.log("getAvailableChats: processChatLinks called with", uniqueLinks.length, "links");
+            const processedChats = uniqueLinks
+                .map((link) => {
+                var _a, _b;
+                const href = link.getAttribute("href");
+                if (!href) {
+                    console.log("getAvailableChats: Link has no href, skipping");
+                    return null;
+                }
+                // Extract chat ID from various URL patterns
+                const chatIdMatch = href.match(/\/c\/([^\/\?]+)/);
+                if (!chatIdMatch) {
+                    console.log("getAvailableChats: Link href doesn't match chat pattern:", href);
+                    return null;
+                }
+                const chatId = chatIdMatch[1];
+                if (!chatId) {
+                    console.log("getAvailableChats: No chat ID extracted from href:", href);
+                    return null;
+                }
+                if (existingChatIds.has(chatId)) {
+                    console.log("getAvailableChats: Chat ID already in current folder, skipping:", chatId);
+                    return null;
+                }
+                // Try to get the title from multiple sources
+                let title = (_a = link.textContent) === null || _a === void 0 ? void 0 : _a.trim();
+                // If no text content, try to find title in child elements
+                if (!title || title === chatId) {
+                    // Look for title in various child elements
+                    const titleSelectors = [
+                        "[title]",
+                        "[data-title]",
+                        ".title",
+                        ".chat-title",
+                        ".truncate",
+                        "span",
+                        "div",
+                        "[class*='truncate']",
+                        "[class*='title']",
+                    ];
+                    for (const selector of titleSelectors) {
+                        const titleElement = link.querySelector(selector);
+                        if (titleElement) {
+                            const elementTitle = titleElement.getAttribute("title") ||
+                                titleElement.getAttribute("data-title") ||
+                                ((_b = titleElement.textContent) === null || _b === void 0 ? void 0 : _b.trim());
+                            if (elementTitle &&
+                                elementTitle !== chatId &&
+                                elementTitle.length > 0) {
+                                title = elementTitle;
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            // Also try to get title from the link's own attributes
-            if (!title || title === chatId) {
-                title =
-                    link.getAttribute("title") ||
-                        link.getAttribute("data-title") ||
-                        link.getAttribute("aria-label") ||
-                        undefined;
-            }
-            // Fallback to a formatted chat ID if no title found
-            if (!title || title === chatId) {
-                title = `Chat ${chatId}`;
-            }
-            console.log(`Found chat: ${title} (${chatId})`);
-            return {
-                id: chatId,
-                title,
-                url: `/c/${chatId}`,
-                preview: "",
-                platform: "chatgpt",
-                timestamp: Date.now(),
-            };
-        })
-            .filter((chat) => chat !== null);
-        console.log(`Available chats for folder "${selectedFolder.name}":`, availableChats.length);
-        return availableChats;
+                // Also try to get title from the link's own attributes
+                if (!title || title === chatId) {
+                    title =
+                        link.getAttribute("title") ||
+                            link.getAttribute("data-title") ||
+                            link.getAttribute("aria-label") ||
+                            undefined;
+                }
+                // Fallback to a formatted chat ID if no title found
+                if (!title || title === chatId) {
+                    title = `Chat ${chatId}`;
+                }
+                // Find which folders this chat is already in
+                const folderIds = folders
+                    .filter((folder) => folder.conversations.some((conv) => conv.id === chatId))
+                    .map((folder) => folder.id);
+                console.log(`Found chat: ${title} (${chatId}) - In folders: ${folderIds.join(", ")}`);
+                const conversation = {
+                    id: chatId,
+                    title,
+                    url: `/c/${chatId}`,
+                    preview: "",
+                    platform: "chatgpt",
+                    timestamp: Date.now(),
+                };
+                // Only add folderIds if the chat is in any folders
+                if (folderIds.length > 0) {
+                    conversation.folderIds = folderIds;
+                }
+                return conversation;
+            })
+                .filter((chat) => chat !== null);
+            console.log("getAvailableChats: processChatLinks returning", processedChats.length, "chats");
+            return processedChats;
+        }
     }, handleSubmitNewFolder: () => {
         const { newFolderName, selectedEmoji } = get();
         if (!newFolderName.trim())
@@ -68496,8 +68712,14 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
                     timestamp: Date.now(),
                 })),
             ] });
+        // Update the folder in the store
         get().updateFolder(updatedFolder);
-        set({ selectedChats: [], showAddChatsModal: false });
+        // Update the selectedFolder to reflect the new state
+        set({
+            selectedFolder: updatedFolder,
+            selectedChats: [],
+            showAddChatsModal: false,
+        });
     }, handleAddChatToFolders: () => {
         var _a;
         const { folders, selectedChatForFolders } = get();
@@ -69109,118 +69331,127 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 // Added NewFolderModal component from your interfac
 // Function to add folder button to chats
-const addFolderButtonToChats = () => {
-    // Use more comprehensive selectors to find chat links
-    const chatSelectors = [
-        'a[href^="/c/"]', // Standard chat links
-        'a[href*="/c/"]', // Any link containing /c/
-        "a[data-fill]", // Links with data-fill attribute
-        'a[class*="__menu-item"]', // Menu item links
-        'a[class*="hoverable"]', // Hoverable links
-        'a[class*="group"]', // Links with group class
-    ];
-    let allChatItems = [];
-    // Collect all chat items from different selectors
-    chatSelectors.forEach((selector) => {
-        try {
-            const items = Array.from(document.querySelectorAll(selector));
-            allChatItems = [...allChatItems, ...items];
+const addFolderButtonToChats = (() => {
+    let lastRunTime = 0;
+    const DEBOUNCE_DELAY = 500; // 500ms debounce
+    return () => {
+        const now = Date.now();
+        if (now - lastRunTime < DEBOUNCE_DELAY) {
+            return; // Skip if called too recently
         }
-        catch (error) {
-            console.warn(`Failed to query selector: ${selector}`, error);
-        }
-    });
-    // Remove duplicates based on href
-    const uniqueChatItems = allChatItems.filter((item, index, self) => {
-        const href = item.getAttribute("href");
-        return (href && self.findIndex((i) => i.getAttribute("href") === href) === index);
-    });
-    console.log(`addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items`);
-    uniqueChatItems.forEach((chatItem) => {
-        if (!chatItem.querySelector(".folder-button")) {
-            const folderButton = document.createElement("button");
-            folderButton.className = "folder-button";
-            folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-            folderButton.style.cssText = `
-        position: absolute;
-        right: 28px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 5px;
-        opacity: 0;
-        transition: opacity 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-            chatItem.style.position = "relative";
-            chatItem.appendChild(folderButton);
-            chatItem.addEventListener("mouseenter", () => {
-                folderButton.style.opacity = "1";
-            });
-            chatItem.addEventListener("mouseleave", () => {
-                folderButton.style.opacity = "0";
-            });
-            folderButton.addEventListener("click", (e) => {
-                var _a, _b;
-                e.preventDefault();
-                e.stopPropagation();
-                const chatId = (_a = chatItem.getAttribute("href")) === null || _a === void 0 ? void 0 : _a.split("/c/")[1];
-                if (chatId) {
-                    // Create a Conversation object for the selected chat
-                    const chatTitle = ((_b = chatItem.textContent) === null || _b === void 0 ? void 0 : _b.trim()) || `Chat ${chatId}`;
-                    const chatUrl = `/c/${chatId}`;
-                    // Set the selected chat for folders with the chat information
-                    _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setSelectedChatForFolders({
-                        id: chatId,
-                        title: chatTitle,
-                        url: chatUrl,
-                        preview: "",
-                        platform: "chatgpt",
-                        timestamp: Date.now(),
-                        folderIds: [],
-                    });
-                    // Show the folder selection modal
-                    _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setShowFolderSelectionModal(true);
-                }
-            });
-            // Add click handler to the chat item itself to prevent default navigation
-            chatItem.addEventListener("click", (e) => {
-                var _a;
-                // Only prevent default if it's a saved chat (has a folder button) and not a programmatic navigation
-                if (chatItem.querySelector(".folder-button") &&
-                    !chatItem.hasAttribute("data-programmatic-navigation")) {
+        lastRunTime = now;
+        // Use more comprehensive selectors to find chat links
+        const chatSelectors = [
+            'a[href^="/c/"]', // Standard chat links
+            'a[href*="/c/"]', // Any link containing /c/
+            "a[data-fill]", // Links with data-fill attribute
+            'a[class*="__menu-item"]', // Menu item links
+            'a[class*="hoverable"]', // Hoverable links
+            'a[class*="group"]', // Links with group class
+        ];
+        let allChatItems = [];
+        // Collect all chat items from different selectors
+        chatSelectors.forEach((selector) => {
+            try {
+                const items = Array.from(document.querySelectorAll(selector));
+                allChatItems = [...allChatItems, ...items];
+            }
+            catch (error) {
+                console.warn(`Failed to query selector: ${selector}`, error);
+            }
+        });
+        // Remove duplicates based on href
+        const uniqueChatItems = allChatItems.filter((item, index, self) => {
+            const href = item.getAttribute("href");
+            return (href && self.findIndex((i) => i.getAttribute("href") === href) === index);
+        });
+        console.log(`addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items`);
+        uniqueChatItems.forEach((chatItem) => {
+            if (!chatItem.querySelector(".folder-button")) {
+                const folderButton = document.createElement("button");
+                folderButton.className = "folder-button";
+                folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+                folderButton.style.cssText = `
+          position: absolute;
+          right: 28px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 5px;
+          opacity: 0;
+          transition: opacity 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        `;
+                chatItem.style.position = "relative";
+                chatItem.appendChild(folderButton);
+                chatItem.addEventListener("mouseenter", () => {
+                    folderButton.style.opacity = "1";
+                });
+                chatItem.addEventListener("mouseleave", () => {
+                    folderButton.style.opacity = "0";
+                });
+                folderButton.addEventListener("click", (e) => {
+                    var _a, _b;
                     e.preventDefault();
                     e.stopPropagation();
                     const chatId = (_a = chatItem.getAttribute("href")) === null || _a === void 0 ? void 0 : _a.split("/c/")[1];
                     if (chatId) {
-                        // Find which folder contains this chat
-                        const folders = _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().folders;
-                        let folderId = null;
-                        for (const folder of folders) {
-                            const chatExists = folder.conversations.some((conv) => conv.id === chatId);
-                            if (chatExists) {
-                                folderId = folder.id;
-                                break;
-                            }
-                        }
-                        // Use history API to navigate without page reload
-                        window.history.pushState({}, "", `/c/${chatId}`);
-                        // Dispatch a custom event to notify that navigation has occurred
-                        window.dispatchEvent(new CustomEvent("chatNavigation", {
-                            detail: { chatId, folderId },
-                        }));
+                        // Create a Conversation object for the selected chat
+                        const chatTitle = ((_b = chatItem.textContent) === null || _b === void 0 ? void 0 : _b.trim()) || `Chat ${chatId}`;
+                        const chatUrl = `/c/${chatId}`;
+                        // Set the selected chat for folders with the chat information
+                        _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setSelectedChatForFolders({
+                            id: chatId,
+                            title: chatTitle,
+                            url: chatUrl,
+                            preview: "",
+                            platform: "chatgpt",
+                            timestamp: Date.now(),
+                            folderIds: [],
+                        });
+                        // Show the folder selection modal
+                        _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().setShowFolderSelectionModal(true);
                     }
-                }
-            });
-        }
-    });
-};
+                });
+                // Add click handler to the chat item itself to prevent default navigation
+                chatItem.addEventListener("click", (e) => {
+                    var _a;
+                    // Only prevent default if it's a saved chat (has a folder button) and not a programmatic navigation
+                    if (chatItem.querySelector(".folder-button") &&
+                        !chatItem.hasAttribute("data-programmatic-navigation")) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const chatId = (_a = chatItem.getAttribute("href")) === null || _a === void 0 ? void 0 : _a.split("/c/")[1];
+                        if (chatId) {
+                            // Find which folder contains this chat
+                            const folders = _store_sidePanelStore__WEBPACK_IMPORTED_MODULE_4__.useSidePanelStore.getState().folders;
+                            let folderId = null;
+                            for (const folder of folders) {
+                                const chatExists = folder.conversations.some((conv) => conv.id === chatId);
+                                if (chatExists) {
+                                    folderId = folder.id;
+                                    break;
+                                }
+                            }
+                            // Use history API to navigate without page reload
+                            window.history.pushState({}, "", `/c/${chatId}`);
+                            // Dispatch a custom event to notify that navigation has occurred
+                            window.dispatchEvent(new CustomEvent("chatNavigation", {
+                                detail: { chatId, folderId },
+                            }));
+                        }
+                    }
+                });
+            }
+        });
+    };
+})();
 // Function to insert new folder button above target element
 // Function to add download button to chat answers
 const addDownloadButtonToAnswers = () => {
@@ -69710,7 +69941,6 @@ const App = () => {
                 if (!sidebar) {
                     return;
                 }
-                addFolderButtonToChats();
                 insertNewFolderButtonAboveTarget();
                 addDownloadButtonToAnswers(); // Add download buttons
                 // Render NewFolderButtonComponent in the specified class
@@ -69743,30 +69973,6 @@ const App = () => {
                 childList: true,
                 subtree: true,
             });
-            // Set up observer for dynamic chat elements within the sidebar
-            const sidebar = document.querySelector('nav[class*="flex-col"]');
-            if (sidebar) {
-                const folderButtonObserver = new MutationObserver(() => {
-                    addFolderButtonToChats();
-                    insertNewFolderButtonAboveTarget();
-                    addDownloadButtonToAnswers(); // Add download buttons
-                });
-                folderButtonObserver.observe(sidebar, {
-                    childList: true,
-                    subtree: true,
-                });
-                // Also set up a periodic refresh to catch any missed chats
-                const periodicRefresh = setInterval(() => {
-                    addFolderButtonToChats();
-                    insertNewFolderButtonAboveTarget();
-                    addDownloadButtonToAnswers();
-                }, 2000); // Refresh every 2 seconds
-                return () => {
-                    folderButtonObserver.disconnect();
-                    documentObserver.disconnect();
-                    clearInterval(periodicRefresh);
-                };
-            }
             return () => {
                 documentObserver.disconnect();
             };

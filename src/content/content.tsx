@@ -22,140 +22,151 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 // Added NewFolderModal component from your interfac
 
 // Function to add folder button to chats
-const addFolderButtonToChats = () => {
-  // Use more comprehensive selectors to find chat links
-  const chatSelectors = [
-    'a[href^="/c/"]', // Standard chat links
-    'a[href*="/c/"]', // Any link containing /c/
-    "a[data-fill]", // Links with data-fill attribute
-    'a[class*="__menu-item"]', // Menu item links
-    'a[class*="hoverable"]', // Hoverable links
-    'a[class*="group"]', // Links with group class
-  ];
+const addFolderButtonToChats = (() => {
+  let lastRunTime = 0;
+  const DEBOUNCE_DELAY = 500; // 500ms debounce
 
-  let allChatItems: Element[] = [];
-
-  // Collect all chat items from different selectors
-  chatSelectors.forEach((selector) => {
-    try {
-      const items = Array.from(document.querySelectorAll(selector));
-      allChatItems = [...allChatItems, ...items];
-    } catch (error) {
-      console.warn(`Failed to query selector: ${selector}`, error);
+  return () => {
+    const now = Date.now();
+    if (now - lastRunTime < DEBOUNCE_DELAY) {
+      return; // Skip if called too recently
     }
-  });
+    lastRunTime = now;
 
-  // Remove duplicates based on href
-  const uniqueChatItems = allChatItems.filter((item, index, self) => {
-    const href = item.getAttribute("href");
-    return (
-      href && self.findIndex((i) => i.getAttribute("href") === href) === index
+    // Use more comprehensive selectors to find chat links
+    const chatSelectors = [
+      'a[href^="/c/"]', // Standard chat links
+      'a[href*="/c/"]', // Any link containing /c/
+      "a[data-fill]", // Links with data-fill attribute
+      'a[class*="__menu-item"]', // Menu item links
+      'a[class*="hoverable"]', // Hoverable links
+      'a[class*="group"]', // Links with group class
+    ];
+
+    let allChatItems: Element[] = [];
+
+    // Collect all chat items from different selectors
+    chatSelectors.forEach((selector) => {
+      try {
+        const items = Array.from(document.querySelectorAll(selector));
+        allChatItems = [...allChatItems, ...items];
+      } catch (error) {
+        console.warn(`Failed to query selector: ${selector}`, error);
+      }
+    });
+
+    // Remove duplicates based on href
+    const uniqueChatItems = allChatItems.filter((item, index, self) => {
+      const href = item.getAttribute("href");
+      return (
+        href && self.findIndex((i) => i.getAttribute("href") === href) === index
+      );
+    });
+
+    console.log(
+      `addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items`
     );
-  });
 
-  console.log(
-    `addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items`
-  );
+    uniqueChatItems.forEach((chatItem) => {
+      if (!chatItem.querySelector(".folder-button")) {
+        const folderButton = document.createElement("button");
+        folderButton.className = "folder-button";
+        folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+        folderButton.style.cssText = `
+          position: absolute;
+          right: 28px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 5px;
+          opacity: 0;
+          transition: opacity 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        `;
+        (chatItem as HTMLElement).style.position = "relative";
+        chatItem.appendChild(folderButton);
 
-  uniqueChatItems.forEach((chatItem) => {
-    if (!chatItem.querySelector(".folder-button")) {
-      const folderButton = document.createElement("button");
-      folderButton.className = "folder-button";
-      folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-      folderButton.style.cssText = `
-        position: absolute;
-        right: 28px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 5px;
-        opacity: 0;
-        transition: opacity 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-      (chatItem as HTMLElement).style.position = "relative";
-      chatItem.appendChild(folderButton);
+        chatItem.addEventListener("mouseenter", () => {
+          folderButton.style.opacity = "1";
+        });
 
-      chatItem.addEventListener("mouseenter", () => {
-        folderButton.style.opacity = "1";
-      });
+        chatItem.addEventListener("mouseleave", () => {
+          folderButton.style.opacity = "0";
+        });
 
-      chatItem.addEventListener("mouseleave", () => {
-        folderButton.style.opacity = "0";
-      });
-
-      folderButton.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
-        if (chatId) {
-          // Create a Conversation object for the selected chat
-          const chatTitle = chatItem.textContent?.trim() || `Chat ${chatId}`;
-          const chatUrl = `/c/${chatId}`;
-
-          // Set the selected chat for folders with the chat information
-          useSidePanelStore.getState().setSelectedChatForFolders({
-            id: chatId,
-            title: chatTitle,
-            url: chatUrl,
-            preview: "",
-            platform: "chatgpt",
-            timestamp: Date.now(),
-            folderIds: [],
-          });
-
-          // Show the folder selection modal
-          useSidePanelStore.getState().setShowFolderSelectionModal(true);
-        }
-      });
-
-      // Add click handler to the chat item itself to prevent default navigation
-      chatItem.addEventListener("click", (e) => {
-        // Only prevent default if it's a saved chat (has a folder button) and not a programmatic navigation
-        if (
-          chatItem.querySelector(".folder-button") &&
-          !chatItem.hasAttribute("data-programmatic-navigation")
-        ) {
+        folderButton.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-
           const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
           if (chatId) {
-            // Find which folder contains this chat
-            const folders = useSidePanelStore.getState().folders;
-            let folderId = null;
+            // Create a Conversation object for the selected chat
+            const chatTitle = chatItem.textContent?.trim() || `Chat ${chatId}`;
+            const chatUrl = `/c/${chatId}`;
 
-            for (const folder of folders) {
-              const chatExists = folder.conversations.some(
-                (conv) => conv.id === chatId
-              );
-              if (chatExists) {
-                folderId = folder.id;
-                break;
-              }
-            }
+            // Set the selected chat for folders with the chat information
+            useSidePanelStore.getState().setSelectedChatForFolders({
+              id: chatId,
+              title: chatTitle,
+              url: chatUrl,
+              preview: "",
+              platform: "chatgpt",
+              timestamp: Date.now(),
+              folderIds: [],
+            });
 
-            // Use history API to navigate without page reload
-            window.history.pushState({}, "", `/c/${chatId}`);
-
-            // Dispatch a custom event to notify that navigation has occurred
-            window.dispatchEvent(
-              new CustomEvent("chatNavigation", {
-                detail: { chatId, folderId },
-              })
-            );
+            // Show the folder selection modal
+            useSidePanelStore.getState().setShowFolderSelectionModal(true);
           }
-        }
-      });
-    }
-  });
-};
+        });
+
+        // Add click handler to the chat item itself to prevent default navigation
+        chatItem.addEventListener("click", (e) => {
+          // Only prevent default if it's a saved chat (has a folder button) and not a programmatic navigation
+          if (
+            chatItem.querySelector(".folder-button") &&
+            !chatItem.hasAttribute("data-programmatic-navigation")
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
+            if (chatId) {
+              // Find which folder contains this chat
+              const folders = useSidePanelStore.getState().folders;
+              let folderId = null;
+
+              for (const folder of folders) {
+                const chatExists = folder.conversations.some(
+                  (conv) => conv.id === chatId
+                );
+                if (chatExists) {
+                  folderId = folder.id;
+                  break;
+                }
+              }
+
+              // Use history API to navigate without page reload
+              window.history.pushState({}, "", `/c/${chatId}`);
+
+              // Dispatch a custom event to notify that navigation has occurred
+              window.dispatchEvent(
+                new CustomEvent("chatNavigation", {
+                  detail: { chatId, folderId },
+                })
+              );
+            }
+          }
+        });
+      }
+    });
+  };
+})();
 
 // Function to insert new folder button above target element
 
@@ -844,7 +855,6 @@ const App: React.FC = () => {
           return;
         }
 
-        addFolderButtonToChats();
         insertNewFolderButtonAboveTarget();
         addDownloadButtonToAnswers(); // Add download buttons
 
@@ -885,34 +895,6 @@ const App: React.FC = () => {
         childList: true,
         subtree: true,
       });
-
-      // Set up observer for dynamic chat elements within the sidebar
-      const sidebar = document.querySelector('nav[class*="flex-col"]');
-      if (sidebar) {
-        const folderButtonObserver = new MutationObserver(() => {
-          addFolderButtonToChats();
-          insertNewFolderButtonAboveTarget();
-          addDownloadButtonToAnswers(); // Add download buttons
-        });
-
-        folderButtonObserver.observe(sidebar, {
-          childList: true,
-          subtree: true,
-        });
-
-        // Also set up a periodic refresh to catch any missed chats
-        const periodicRefresh = setInterval(() => {
-          addFolderButtonToChats();
-          insertNewFolderButtonAboveTarget();
-          addDownloadButtonToAnswers();
-        }, 2000); // Refresh every 2 seconds
-
-        return () => {
-          folderButtonObserver.disconnect();
-          documentObserver.disconnect();
-          clearInterval(periodicRefresh);
-        };
-      }
 
       return () => {
         documentObserver.disconnect();
