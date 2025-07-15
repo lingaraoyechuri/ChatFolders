@@ -67329,41 +67329,25 @@ const AddChatsModal = ({ folder, onClose, }) => {
     const [hasInitialized, setHasInitialized] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
     // Refresh available chats when modal opens
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
-        console.log("AddChatsModal: useEffect triggered", {
-            showAddChatsModal,
-            hasInitialized,
-            folder: folder === null || folder === void 0 ? void 0 : folder.name,
-        });
         if (showAddChatsModal && !hasInitialized) {
-            console.log("AddChatsModal: Modal opened, refreshing available chats...");
-            console.log("AddChatsModal: showAddChatsModal =", showAddChatsModal);
-            console.log("AddChatsModal: selectedFolder =", folder);
-            console.log("AddChatsModal: hasInitialized =", hasInitialized);
             setIsLoading(true);
             setHasInitialized(true);
             // Call getAvailableChats immediately
             const loadChats = () => __awaiter(void 0, void 0, void 0, function* () {
                 try {
-                    console.log("AddChatsModal: Starting to load chats...");
-                    console.log("AddChatsModal: Calling getAvailableChats()...");
-                    console.log("AddChatsModal: getAvailableChats function:", typeof getAvailableChats);
                     if (typeof getAvailableChats === "function") {
                         const chats = yield getAvailableChats();
-                        console.log("AddChatsModal: Successfully loaded chats:", chats.length, chats);
                         setAvailableChats(chats);
                     }
                     else {
-                        console.error("AddChatsModal: getAvailableChats is not a function:", getAvailableChats);
                         setAvailableChats([]);
                     }
                 }
                 catch (error) {
                     console.error("AddChatsModal: Error loading chats:", error);
-                    // Set empty array on error to prevent infinite loading
                     setAvailableChats([]);
                 }
                 finally {
-                    console.log("AddChatsModal: Finished loading, setting isLoading to false");
                     setIsLoading(false);
                 }
             });
@@ -67371,7 +67355,6 @@ const AddChatsModal = ({ folder, onClose, }) => {
             loadChats();
             // Also add a timeout to prevent infinite loading
             const timeoutTimer = setTimeout(() => {
-                console.log("AddChatsModal: Loading timeout reached, stopping loading");
                 setIsLoading(false);
                 if (availableChats.length === 0) {
                     setAvailableChats([]);
@@ -67391,12 +67374,10 @@ const AddChatsModal = ({ folder, onClose, }) => {
         }
     }, [showAddChatsModal]);
     const handleRefresh = () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log("AddChatsModal: Manual refresh triggered");
         setIsLoading(true);
         try {
             const chats = yield getAvailableChats();
             setAvailableChats(chats);
-            console.log("AddChatsModal: Refreshed chats count:", chats.length);
         }
         catch (error) {
             console.error("AddChatsModal: Error refreshing chats:", error);
@@ -67410,7 +67391,6 @@ const AddChatsModal = ({ folder, onClose, }) => {
         onClose === null || onClose === void 0 ? void 0 : onClose();
     };
     const filteredChats = availableChats.filter((chat) => chat.title.toLowerCase().includes(searchQuery.toLowerCase()));
-    console.log("AddChatsModal: Rendering with", availableChats.length, "available chats,", filteredChats.length, "filtered chats");
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_3__["default"], { open: showAddChatsModal, onClose: handleClose, maxWidth: "sm", fullWidth: true, PaperProps: {
             sx: {
                 bgcolor: "#1e2330",
@@ -67452,57 +67432,31 @@ const AddChatsModal = ({ folder, onClose, }) => {
                         }, InputProps: {
                             startAdornment: ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_9__["default"], { position: "start", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_icons_material__WEBPACK_IMPORTED_MODULE_10__["default"], { sx: { color: "#8a8d91" } }) })),
                             endAdornment: ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_9__["default"], { position: "end", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_5__["default"], { onClick: handleRefresh, sx: { color: "#8a8d91" }, title: "Refresh available chats", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "20", height: "20", viewBox: "0 0 20 20", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M10 3a7 7 0 0 0-7 7H1l3.5 3.5L8 10H6a4 4 0 1 1 4 4v2a6 6 0 1 0-6-6H2a8 8 0 1 1 8 8v-2a6 6 0 0 0 0-12z" }) }) }) })),
-                        } }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: { marginBottom: "16px" }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: handleRefresh, disabled: isLoading, startIcon: isLoading ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", style: {
-                                        animation: "spin 1s linear infinite",
-                                        transformOrigin: "center",
-                                    }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("circle", { cx: "8", cy: "8", r: "6", stroke: "#3a84ff", strokeWidth: "2", strokeDasharray: "18.85", strokeDashoffset: "18.85", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dasharray", dur: "2s", values: "0 18.85;9.425 9.425;0 18.85", repeatCount: "indefinite" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dashoffset", dur: "2s", values: "0;-9.425;-18.85", repeatCount: "indefinite" })] }) })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M8 2a6 6 0 0 0-6 6H1l2.5 2.5L6 8H4a4 4 0 1 1 4 4v1.5a5.5 5.5 0 1 0-5.5-5.5H2a6 6 0 1 1 6 6v-1.5a4.5 4.5 0 0 0 0-9z" }) })), sx: {
-                                    color: "#3a84ff",
-                                    borderColor: "#3a84ff",
-                                    "&:hover": {
-                                        borderColor: "#2970e6",
-                                        backgroundColor: "rgba(58, 132, 255, 0.1)",
-                                    },
-                                    "&.Mui-disabled": {
-                                        color: "#8a8d91",
-                                        borderColor: "#2a2f3a",
-                                    },
-                                    fontSize: "14px",
-                                    textTransform: "none",
-                                    padding: "8px 16px",
-                                }, children: isLoading ? "Loading All Chats..." : "Load All Chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: () => {
-                                    console.log("AddChatsModal: Debug button clicked");
-                                    console.log("AddChatsModal: getAvailableChats function:", typeof getAvailableChats);
-                                    if (typeof getAvailableChats === "function") {
-                                        getAvailableChats()
-                                            .then((chats) => {
-                                            console.log("AddChatsModal: Debug - getAvailableChats returned:", chats.length, chats);
-                                        })
-                                            .catch((error) => {
-                                            console.error("AddChatsModal: Debug - getAvailableChats error:", error);
-                                        });
-                                    }
-                                }, sx: {
-                                    color: "#ff6b6b",
-                                    borderColor: "#ff6b6b",
-                                    marginLeft: "8px",
-                                    fontSize: "12px",
-                                    textTransform: "none",
-                                    padding: "4px 8px",
-                                }, children: "Debug" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
+                        } }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { marginBottom: "16px" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: handleRefresh, disabled: isLoading, startIcon: isLoading ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", style: {
+                                    animation: "spin 1s linear infinite",
+                                    transformOrigin: "center",
+                                }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("circle", { cx: "8", cy: "8", r: "6", stroke: "#3a84ff", strokeWidth: "2", strokeDasharray: "18.85", strokeDashoffset: "18.85", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dasharray", dur: "2s", values: "0 18.85;9.425 9.425;0 18.85", repeatCount: "indefinite" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dashoffset", dur: "2s", values: "0;-9.425;-18.85", repeatCount: "indefinite" })] }) })) : ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M8 2a6 6 0 0 0-6 6H1l2.5 2.5L6 8H4a4 4 0 1 1 4 4v1.5a5.5 5.5 0 1 0-5.5-5.5H2a6 6 0 1 1 6 6v-1.5a4.5 4.5 0 0 0 0-9z" }) })), sx: {
+                                color: "#3a84ff",
+                                borderColor: "#3a84ff",
+                                "&:hover": {
+                                    borderColor: "#2970e6",
+                                    backgroundColor: "rgba(58, 132, 255, 0.1)",
+                                },
+                                "&.Mui-disabled": {
+                                    color: "#8a8d91",
+                                    borderColor: "#2a2f3a",
+                                },
+                                fontSize: "14px",
+                                textTransform: "none",
+                                padding: "8px 16px",
+                            }, children: isLoading ? "Loading All Chats..." : "Load All Chats" }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
                             fontSize: "12px",
                             color: "#8a8d91",
                             marginBottom: "8px",
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
-                        }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Available chats: ", availableChats.length] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Filtered chats: ", filteredChats.length] }), isLoading && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("span", { children: "Loading..." }), searchQuery && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Search: \"", searchQuery, "\""] })] }), isLoading ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
-                            textAlign: "center",
-                            padding: "40px",
-                            color: "#8a8d91",
-                        }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { marginBottom: "16px" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", style: {
-                                        animation: "spin 1s linear infinite",
-                                        transformOrigin: "center",
-                                    }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("circle", { cx: "12", cy: "12", r: "10", stroke: "#3a84ff", strokeWidth: "2", strokeDasharray: "31.416", strokeDashoffset: "31.416", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dasharray", dur: "2s", values: "0 31.416;15.708 15.708;0 31.416", repeatCount: "indefinite" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("animate", { attributeName: "stroke-dashoffset", dur: "2s", values: "0;-15.708;-31.416", repeatCount: "indefinite" })] }) }) }), "Loading all chats...", (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { fontSize: "12px", marginTop: "8px" }, children: "This may take a few seconds as we scroll through your chat history" })] })) : filteredChats.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_12__["default"], { sx: {
+                        }, children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Available chats: ", availableChats.length] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Filtered chats: ", filteredChats.length] }), searchQuery && (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("span", { children: ["Search: \"", searchQuery, "\""] })] }), filteredChats.length > 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_12__["default"], { sx: {
                             maxHeight: 300,
                             overflow: "auto",
                             "&::-webkit-scrollbar": {

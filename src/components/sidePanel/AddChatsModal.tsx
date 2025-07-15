@@ -45,53 +45,23 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
 
   // Refresh available chats when modal opens
   React.useEffect(() => {
-    console.log("AddChatsModal: useEffect triggered", {
-      showAddChatsModal,
-      hasInitialized,
-      folder: folder?.name,
-    });
-
     if (showAddChatsModal && !hasInitialized) {
-      console.log("AddChatsModal: Modal opened, refreshing available chats...");
-      console.log("AddChatsModal: showAddChatsModal =", showAddChatsModal);
-      console.log("AddChatsModal: selectedFolder =", folder);
-      console.log("AddChatsModal: hasInitialized =", hasInitialized);
       setIsLoading(true);
       setHasInitialized(true);
 
       // Call getAvailableChats immediately
       const loadChats = async () => {
         try {
-          console.log("AddChatsModal: Starting to load chats...");
-          console.log("AddChatsModal: Calling getAvailableChats()...");
-          console.log(
-            "AddChatsModal: getAvailableChats function:",
-            typeof getAvailableChats
-          );
-
           if (typeof getAvailableChats === "function") {
             const chats = await getAvailableChats();
-            console.log(
-              "AddChatsModal: Successfully loaded chats:",
-              chats.length,
-              chats
-            );
             setAvailableChats(chats);
           } else {
-            console.error(
-              "AddChatsModal: getAvailableChats is not a function:",
-              getAvailableChats
-            );
             setAvailableChats([]);
           }
         } catch (error) {
           console.error("AddChatsModal: Error loading chats:", error);
-          // Set empty array on error to prevent infinite loading
           setAvailableChats([]);
         } finally {
-          console.log(
-            "AddChatsModal: Finished loading, setting isLoading to false"
-          );
           setIsLoading(false);
         }
       };
@@ -101,7 +71,6 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
 
       // Also add a timeout to prevent infinite loading
       const timeoutTimer = setTimeout(() => {
-        console.log("AddChatsModal: Loading timeout reached, stopping loading");
         setIsLoading(false);
         if (availableChats.length === 0) {
           setAvailableChats([]);
@@ -124,13 +93,11 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
   }, [showAddChatsModal]);
 
   const handleRefresh = async () => {
-    console.log("AddChatsModal: Manual refresh triggered");
     setIsLoading(true);
 
     try {
       const chats = await getAvailableChats();
       setAvailableChats(chats);
-      console.log("AddChatsModal: Refreshed chats count:", chats.length);
     } catch (error) {
       console.error("AddChatsModal: Error refreshing chats:", error);
     } finally {
@@ -145,14 +112,6 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
 
   const filteredChats = availableChats.filter((chat: Conversation) =>
     chat.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  console.log(
-    "AddChatsModal: Rendering with",
-    availableChats.length,
-    "available chats,",
-    filteredChats.length,
-    "filtered chats"
   );
 
   return (
@@ -312,45 +271,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
               padding: "8px 16px",
             }}
           >
-            {isLoading ? "Loading All Chats..." : "Load All Chats"}
-          </MuiButton>
-
-          {/* Debug button */}
-          <MuiButton
-            variant="outlined"
-            onClick={() => {
-              console.log("AddChatsModal: Debug button clicked");
-              console.log(
-                "AddChatsModal: getAvailableChats function:",
-                typeof getAvailableChats
-              );
-              if (typeof getAvailableChats === "function") {
-                getAvailableChats()
-                  .then((chats) => {
-                    console.log(
-                      "AddChatsModal: Debug - getAvailableChats returned:",
-                      chats.length,
-                      chats
-                    );
-                  })
-                  .catch((error) => {
-                    console.error(
-                      "AddChatsModal: Debug - getAvailableChats error:",
-                      error
-                    );
-                  });
-              }
-            }}
-            sx={{
-              color: "#ff6b6b",
-              borderColor: "#ff6b6b",
-              marginLeft: "8px",
-              fontSize: "12px",
-              textTransform: "none",
-              padding: "4px 8px",
-            }}
-          >
-            Debug
+            {isLoading ? "Loading Chats..." : "Load Chats"}
           </MuiButton>
         </div>
 
@@ -367,59 +288,10 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
         >
           <span>Available chats: {availableChats.length}</span>
           <span>Filtered chats: {filteredChats.length}</span>
-          {isLoading && <span>Loading...</span>}
           {searchQuery && <span>Search: "{searchQuery}"</span>}
         </div>
 
-        {isLoading ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "40px",
-              color: "#8a8d91",
-            }}
-          >
-            <div style={{ marginBottom: "16px" }}>
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{
-                  animation: "spin 1s linear infinite",
-                  transformOrigin: "center",
-                }}
-              >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="#3a84ff"
-                  strokeWidth="2"
-                  strokeDasharray="31.416"
-                  strokeDashoffset="31.416"
-                >
-                  <animate
-                    attributeName="stroke-dasharray"
-                    dur="2s"
-                    values="0 31.416;15.708 15.708;0 31.416"
-                    repeatCount="indefinite"
-                  />
-                  <animate
-                    attributeName="stroke-dashoffset"
-                    dur="2s"
-                    values="0;-15.708;-31.416"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              </svg>
-            </div>
-            Loading all chats...
-            <div style={{ fontSize: "12px", marginTop: "8px" }}>
-              This may take a few seconds as we scroll through your chat history
-            </div>
-          </div>
-        ) : filteredChats.length > 0 ? (
+        {filteredChats.length > 0 ? (
           <List
             sx={{
               maxHeight: 300,
@@ -520,7 +392,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
                     textTransform: "none",
                   }}
                 >
-                  Load All Chats
+                  Load Chats
                 </MuiButton>
               </div>
             ) : (
