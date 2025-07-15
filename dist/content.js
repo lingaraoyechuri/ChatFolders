@@ -67327,42 +67327,20 @@ const AddChatsModal = ({ folder, onClose, }) => {
     const [availableChats, setAvailableChats] = react__WEBPACK_IMPORTED_MODULE_1___default().useState([]);
     const [isLoading, setIsLoading] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
     const [hasInitialized, setHasInitialized] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(false);
+    const [originalScrollTop, setOriginalScrollTop] = react__WEBPACK_IMPORTED_MODULE_1___default().useState(0);
     // Refresh available chats when modal opens
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
         if (showAddChatsModal && !hasInitialized) {
-            setIsLoading(true);
             setHasInitialized(true);
-            // Call getAvailableChats immediately
-            const loadChats = () => __awaiter(void 0, void 0, void 0, function* () {
-                try {
-                    if (typeof getAvailableChats === "function") {
-                        const chats = yield getAvailableChats();
-                        setAvailableChats(chats);
-                    }
-                    else {
-                        setAvailableChats([]);
-                    }
-                }
-                catch (error) {
-                    console.error("AddChatsModal: Error loading chats:", error);
-                    setAvailableChats([]);
-                }
-                finally {
-                    setIsLoading(false);
-                }
-            });
-            // Call immediately
-            loadChats();
-            // Also add a timeout to prevent infinite loading
-            const timeoutTimer = setTimeout(() => {
-                setIsLoading(false);
-                if (availableChats.length === 0) {
-                    setAvailableChats([]);
-                }
-            }, 30000); // 30 second timeout
-            return () => {
-                clearTimeout(timeoutTimer);
-            };
+            // Store the original scroll position
+            const chatListContainer = document.querySelector('nav[class*="flex-col"]') ||
+                document.querySelector('[role="navigation"]') ||
+                document.querySelector('[class*="sidebar"]');
+            if (chatListContainer) {
+                setOriginalScrollTop(chatListContainer.scrollTop);
+            }
+            // Automatically load chats when modal opens
+            handleRefresh();
         }
     }, [showAddChatsModal, hasInitialized, folder, getAvailableChats]);
     // Reset initialization flag when modal closes
@@ -67371,8 +67349,15 @@ const AddChatsModal = ({ folder, onClose, }) => {
             setHasInitialized(false);
             setAvailableChats([]);
             setIsLoading(false);
+            // Restore the original scroll position
+            const chatListContainer = document.querySelector('nav[class*="flex-col"]') ||
+                document.querySelector('[role="navigation"]') ||
+                document.querySelector('[class*="sidebar"]');
+            if (chatListContainer) {
+                chatListContainer.scrollTop = originalScrollTop;
+            }
         }
-    }, [showAddChatsModal]);
+    }, [showAddChatsModal, originalScrollTop]);
     const handleRefresh = () => __awaiter(void 0, void 0, void 0, function* () {
         setIsLoading(true);
         try {
@@ -67390,6 +67375,14 @@ const AddChatsModal = ({ folder, onClose, }) => {
         closeAddChatsModal();
         onClose === null || onClose === void 0 ? void 0 : onClose();
     };
+    const handleAddChats = () => __awaiter(void 0, void 0, void 0, function* () {
+        try {
+            yield addChatsToFolder();
+        }
+        catch (error) {
+            console.error("Error adding chats to folder:", error);
+        }
+    });
     const filteredChats = availableChats.filter((chat) => chat.title.toLowerCase().includes(searchQuery.toLowerCase()));
     return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_3__["default"], { open: showAddChatsModal, onClose: handleClose, maxWidth: "sm", fullWidth: true, PaperProps: {
             sx: {
@@ -67449,7 +67442,7 @@ const AddChatsModal = ({ folder, onClose, }) => {
                                 fontSize: "14px",
                                 textTransform: "none",
                                 padding: "8px 16px",
-                            }, children: isLoading ? "Loading All Chats..." : "Load All Chats" }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
+                            }, children: isLoading ? "Loading Chats..." : "Refresh Chats" }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { style: {
                             fontSize: "12px",
                             color: "#8a8d91",
                             marginBottom: "8px",
@@ -67497,12 +67490,12 @@ const AddChatsModal = ({ folder, onClose, }) => {
                             textAlign: "center",
                             padding: "20px",
                             color: "#8a8d91",
-                        }, children: availableChats.length === 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { marginBottom: "12px" }, children: "No chats found in the current view" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { fontSize: "12px", marginBottom: "16px" }, children: "Click \"Load All Chats\" above to scroll through your chat history and find all available chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: handleRefresh, size: "small", sx: {
+                        }, children: availableChats.length === 0 ? ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { marginBottom: "12px" }, children: "Loading chats..." }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { fontSize: "12px", marginBottom: "16px" }, children: "We're scrolling through your chat history to find all available chats" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "outlined", onClick: handleRefresh, size: "small", sx: {
                                         color: "#3a84ff",
                                         borderColor: "#3a84ff",
                                         fontSize: "12px",
                                         textTransform: "none",
-                                    }, children: "Load All Chats" })] })) : ("No available chats to add") }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_16__["default"], { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { onClick: handleClose, sx: { color: "#8a8d91" }, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "contained", onClick: addChatsToFolder, disabled: selectedChats.length === 0, sx: {
+                                    }, children: "Refresh Chats" })] })) : ("No available chats to add") }))] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(_mui_material__WEBPACK_IMPORTED_MODULE_16__["default"], { children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { onClick: handleClose, sx: { color: "#8a8d91" }, children: "Cancel" }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_mui_material__WEBPACK_IMPORTED_MODULE_11__["default"], { variant: "contained", onClick: handleAddChats, disabled: selectedChats.length === 0, sx: {
                             bgcolor: "#3a84ff",
                             "&:hover": {
                                 bgcolor: "#2970e6",
@@ -68642,7 +68635,7 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
         const updatedFolder = Object.assign(Object.assign({}, editingFolder), { name: newFolderName.trim(), emoji: selectedEmoji });
         get().updateFolder(updatedFolder);
         set({ editingFolder: null, newFolderName: "", showNewFolderModal: false });
-    }, addChatsToFolder: () => {
+    }, addChatsToFolder: () => __awaiter(void 0, void 0, void 0, function* () {
         const { selectedFolder, selectedChats } = get();
         if (!selectedFolder)
             return;
@@ -68655,26 +68648,53 @@ const useSidePanelStore = (0,zustand__WEBPACK_IMPORTED_MODULE_0__.create)((set, 
             return;
         }
         console.log(`Adding ${newChats.length} new chats to folder ${selectedFolder.id}`);
-        const updatedFolder = Object.assign(Object.assign({}, selectedFolder), { conversations: [
-                ...selectedFolder.conversations,
-                ...newChats.map((chatId) => ({
-                    id: chatId,
-                    title: `Chat ${chatId}`,
-                    url: `/c/${chatId}`,
-                    preview: "",
-                    platform: "chatgpt",
-                    timestamp: Date.now(),
-                })),
-            ] });
-        // Update the folder in the store
-        get().updateFolder(updatedFolder);
-        // Update the selectedFolder to reflect the new state
-        set({
-            selectedFolder: updatedFolder,
-            selectedChats: [],
-            showAddChatsModal: false,
-        });
-    }, handleAddChatToFolders: () => {
+        try {
+            // Get the available chats to get their titles
+            const availableChats = yield get().getAvailableChats();
+            const availableChatsMap = new Map(availableChats.map((chat) => [chat.id, chat]));
+            const updatedFolder = Object.assign(Object.assign({}, selectedFolder), { conversations: [
+                    ...selectedFolder.conversations,
+                    ...newChats.map((chatId) => {
+                        // Try to get the chat info from available chats
+                        const availableChat = availableChatsMap.get(chatId);
+                        if (availableChat) {
+                            return {
+                                id: chatId,
+                                title: availableChat.title,
+                                url: availableChat.url,
+                                preview: availableChat.preview,
+                                platform: availableChat.platform,
+                                timestamp: availableChat.timestamp,
+                            };
+                        }
+                        else {
+                            // Fallback to generic title if not found
+                            return {
+                                id: chatId,
+                                title: `Chat ${chatId}`,
+                                url: `/c/${chatId}`,
+                                preview: "",
+                                platform: "chatgpt",
+                                timestamp: Date.now(),
+                            };
+                        }
+                    }),
+                ] });
+            // Update the folder in the store
+            get().updateFolder(updatedFolder);
+            // Update the selectedFolder to reflect the new state
+            set({
+                selectedFolder: updatedFolder,
+                selectedChats: [],
+                showAddChatsModal: false,
+            });
+        }
+        catch (error) {
+            console.error("Error adding chats to folder:", error);
+            // Still close the modal even if there's an error
+            set({ selectedChats: [], showAddChatsModal: false });
+        }
+    }), handleAddChatToFolders: () => {
         var _a;
         const { folders, selectedChatForFolders } = get();
         if (!((_a = selectedChatForFolders === null || selectedChatForFolders === void 0 ? void 0 : selectedChatForFolders.folderIds) === null || _a === void 0 ? void 0 : _a.length))

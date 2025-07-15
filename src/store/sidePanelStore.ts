@@ -58,7 +58,7 @@ interface SidePanelState {
   setSearchQuery: (query: string) => void;
   handleSubmitNewFolder: () => void;
   handleSaveEdit: () => void;
-  addChatsToFolder: () => void;
+  addChatsToFolder: () => Promise<void>;
   handleAddChatToFolders: () => void;
   closeAddChatsModal: () => void;
   toggleChatSelection: (chatId: string) => void;
@@ -605,7 +605,7 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
     set({ editingFolder: null, newFolderName: "", showNewFolderModal: false });
   },
 
-  addChatsToFolder: () => {
+  addChatsToFolder: async () => {
     const { selectedFolder, selectedChats } = get();
     if (!selectedFolder) return;
 
@@ -629,30 +629,58 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       `Adding ${newChats.length} new chats to folder ${selectedFolder.id}`
     );
 
-    const updatedFolder: Folder = {
-      ...selectedFolder,
-      conversations: [
-        ...selectedFolder.conversations,
-        ...newChats.map((chatId) => ({
-          id: chatId,
-          title: `Chat ${chatId}`,
-          url: `/c/${chatId}`,
-          preview: "",
-          platform: "chatgpt" as Platform,
-          timestamp: Date.now(),
-        })),
-      ],
-    };
+    try {
+      // Get the available chats to get their titles
+      const availableChats = await get().getAvailableChats();
+      const availableChatsMap = new Map(
+        availableChats.map((chat) => [chat.id, chat])
+      );
 
-    // Update the folder in the store
-    get().updateFolder(updatedFolder);
+      const updatedFolder: Folder = {
+        ...selectedFolder,
+        conversations: [
+          ...selectedFolder.conversations,
+          ...newChats.map((chatId) => {
+            // Try to get the chat info from available chats
+            const availableChat = availableChatsMap.get(chatId);
+            if (availableChat) {
+              return {
+                id: chatId,
+                title: availableChat.title,
+                url: availableChat.url,
+                preview: availableChat.preview,
+                platform: availableChat.platform,
+                timestamp: availableChat.timestamp,
+              };
+            } else {
+              // Fallback to generic title if not found
+              return {
+                id: chatId,
+                title: `Chat ${chatId}`,
+                url: `/c/${chatId}`,
+                preview: "",
+                platform: "chatgpt" as Platform,
+                timestamp: Date.now(),
+              };
+            }
+          }),
+        ],
+      };
 
-    // Update the selectedFolder to reflect the new state
-    set({
-      selectedFolder: updatedFolder,
-      selectedChats: [],
-      showAddChatsModal: false,
-    });
+      // Update the folder in the store
+      get().updateFolder(updatedFolder);
+
+      // Update the selectedFolder to reflect the new state
+      set({
+        selectedFolder: updatedFolder,
+        selectedChats: [],
+        showAddChatsModal: false,
+      });
+    } catch (error) {
+      console.error("Error adding chats to folder:", error);
+      // Still close the modal even if there's an error
+      set({ selectedChats: [], showAddChatsModal: false });
+    }
   },
 
   handleAddChatToFolders: () => {

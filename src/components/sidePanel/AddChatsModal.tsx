@@ -42,44 +42,25 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
   );
   const [isLoading, setIsLoading] = React.useState(false);
   const [hasInitialized, setHasInitialized] = React.useState(false);
+  const [originalScrollTop, setOriginalScrollTop] = React.useState(0);
 
   // Refresh available chats when modal opens
   React.useEffect(() => {
     if (showAddChatsModal && !hasInitialized) {
-      setIsLoading(true);
       setHasInitialized(true);
 
-      // Call getAvailableChats immediately
-      const loadChats = async () => {
-        try {
-          if (typeof getAvailableChats === "function") {
-            const chats = await getAvailableChats();
-            setAvailableChats(chats);
-          } else {
-            setAvailableChats([]);
-          }
-        } catch (error) {
-          console.error("AddChatsModal: Error loading chats:", error);
-          setAvailableChats([]);
-        } finally {
-          setIsLoading(false);
-        }
-      };
+      // Store the original scroll position
+      const chatListContainer =
+        document.querySelector('nav[class*="flex-col"]') ||
+        document.querySelector('[role="navigation"]') ||
+        document.querySelector('[class*="sidebar"]');
 
-      // Call immediately
-      loadChats();
+      if (chatListContainer) {
+        setOriginalScrollTop(chatListContainer.scrollTop);
+      }
 
-      // Also add a timeout to prevent infinite loading
-      const timeoutTimer = setTimeout(() => {
-        setIsLoading(false);
-        if (availableChats.length === 0) {
-          setAvailableChats([]);
-        }
-      }, 30000); // 30 second timeout
-
-      return () => {
-        clearTimeout(timeoutTimer);
-      };
+      // Automatically load chats when modal opens
+      handleRefresh();
     }
   }, [showAddChatsModal, hasInitialized, folder, getAvailableChats]);
 
@@ -89,8 +70,18 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
       setHasInitialized(false);
       setAvailableChats([]);
       setIsLoading(false);
+
+      // Restore the original scroll position
+      const chatListContainer =
+        document.querySelector('nav[class*="flex-col"]') ||
+        document.querySelector('[role="navigation"]') ||
+        document.querySelector('[class*="sidebar"]');
+
+      if (chatListContainer) {
+        chatListContainer.scrollTop = originalScrollTop;
+      }
     }
-  }, [showAddChatsModal]);
+  }, [showAddChatsModal, originalScrollTop]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
@@ -108,6 +99,14 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
   const handleClose = () => {
     closeAddChatsModal();
     onClose?.();
+  };
+
+  const handleAddChats = async () => {
+    try {
+      await addChatsToFolder();
+    } catch (error) {
+      console.error("Error adding chats to folder:", error);
+    }
   };
 
   const filteredChats = availableChats.filter((chat: Conversation) =>
@@ -203,7 +202,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
           }}
         />
 
-        {/* Load All Chats Button */}
+        {/* Refresh Chats Button */}
         <div style={{ marginBottom: "16px" }}>
           <MuiButton
             variant="outlined"
@@ -271,7 +270,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
               padding: "8px 16px",
             }}
           >
-            {isLoading ? "Loading Chats..." : "Load Chats"}
+            {isLoading ? "Loading Chats..." : "Refresh Chats"}
           </MuiButton>
         </div>
 
@@ -374,12 +373,10 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
           >
             {availableChats.length === 0 ? (
               <div>
-                <div style={{ marginBottom: "12px" }}>
-                  No chats found in the current view
-                </div>
+                <div style={{ marginBottom: "12px" }}>Loading chats...</div>
                 <div style={{ fontSize: "12px", marginBottom: "16px" }}>
-                  Click "Load All Chats" above to scroll through your chat
-                  history and find all available chats
+                  We're scrolling through your chat history to find all
+                  available chats
                 </div>
                 <MuiButton
                   variant="outlined"
@@ -392,7 +389,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
                     textTransform: "none",
                   }}
                 >
-                  Load Chats
+                  Refresh Chats
                 </MuiButton>
               </div>
             ) : (
@@ -407,7 +404,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
         </MuiButton>
         <MuiButton
           variant="contained"
-          onClick={addChatsToFolder}
+          onClick={handleAddChats}
           disabled={selectedChats.length === 0}
           sx={{
             bgcolor: "#3a84ff",

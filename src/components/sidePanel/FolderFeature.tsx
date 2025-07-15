@@ -409,7 +409,7 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
           </ActionButton>
           {showDropdown && (
             <Dropdown ref={dropdownRef}>
-              <DropdownItem onClick={handleEdit}>Edit folder</DropdownItem>
+              <DropdownItem onClick={handleEdit}>Edit folder name</DropdownItem>
               <DropdownItem onClick={handleAddChats}>Add chats</DropdownItem>
               <DropdownItem onClick={handleDelete}>Delete folder</DropdownItem>
             </Dropdown>
