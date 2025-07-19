@@ -68,68 +68,164 @@ const addFolderButtonToChats = (() => {
     );
 
     uniqueChatItems.forEach((chatItem) => {
-      if (!chatItem.querySelector(".folder-button")) {
-        const folderButton = document.createElement("button");
-        folderButton.className = "folder-button";
-        folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>`;
-        folderButton.style.cssText = `
-          position: absolute;
-          right: 28px;
-          top: 50%;
-          transform: translateY(-50%);
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 5px;
-          opacity: 0;
-          transition: opacity 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        `;
-        (chatItem as HTMLElement).style.position = "relative";
-        chatItem.appendChild(folderButton);
+      if (!chatItem.querySelector(".folder-add-button")) {
+        // Find the trailing section where the options button is located
+        const trailingSection = chatItem.querySelector(
+          ".text-token-text-tertiary.flex.items-center.self-stretch"
+        );
 
-        chatItem.addEventListener("mouseenter", () => {
-          folderButton.style.opacity = "1";
-        });
+        if (trailingSection) {
+          // Create a new trailing section for our add button
+          const addButtonSection = document.createElement("div");
+          addButtonSection.className =
+            "text-token-text-tertiary flex items-center self-stretch";
+          addButtonSection.style.marginRight = "4px"; // Add some spacing from the options button
 
-        chatItem.addEventListener("mouseleave", () => {
-          folderButton.style.opacity = "0";
-        });
+          // Create the add button
+          const folderButton = document.createElement("button");
+          folderButton.className = "__menu-item-trailing-btn folder-add-button";
+          folderButton.setAttribute("tabindex", "0");
+          folderButton.setAttribute("aria-label", "Add to folder");
+          folderButton.setAttribute("type", "button");
+          folderButton.setAttribute("data-state", "closed");
 
-        folderButton.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
-          if (chatId) {
-            // Create a Conversation object for the selected chat
-            const chatTitle = chatItem.textContent?.trim() || `Chat ${chatId}`;
-            const chatUrl = `/c/${chatId}`;
+          folderButton.innerHTML = `
+            <div>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="icon" aria-hidden="true">
+                <path d="M10 3V17M3 10H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          `;
 
-            // Set the selected chat for folders with the chat information
-            useSidePanelStore.getState().setSelectedChatForFolders({
-              id: chatId,
-              title: chatTitle,
-              url: chatUrl,
-              preview: "",
-              platform: "chatgpt",
-              timestamp: Date.now(),
-              folderIds: [],
-            });
+          folderButton.style.cssText = `
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--token-text-tertiary);
+          `;
 
-            // Show the folder selection modal
-            useSidePanelStore.getState().setShowFolderSelectionModal(true);
-          }
-        });
+          addButtonSection.appendChild(folderButton);
+
+          // Insert our button section before the existing trailing section
+          trailingSection.parentNode?.insertBefore(
+            addButtonSection,
+            trailingSection
+          );
+
+          // Add hover effects
+          chatItem.addEventListener("mouseenter", () => {
+            folderButton.style.opacity = "1";
+          });
+
+          chatItem.addEventListener("mouseleave", () => {
+            folderButton.style.opacity = "0";
+          });
+
+          folderButton.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
+            if (chatId) {
+              // Create a Conversation object for the selected chat
+              const chatTitle =
+                chatItem.textContent?.trim() || `Chat ${chatId}`;
+              const chatUrl = `/c/${chatId}`;
+
+              // Set the selected chat for folders with the chat information
+              useSidePanelStore.getState().setSelectedChatForFolders({
+                id: chatId,
+                title: chatTitle,
+                url: chatUrl,
+                preview: "",
+                platform: "chatgpt",
+                timestamp: Date.now(),
+                folderIds: [],
+              });
+
+              // Show the folder selection modal
+              useSidePanelStore.getState().setShowFolderSelectionModal(true);
+            }
+          });
+        } else {
+          // Fallback: if we can't find the trailing section, add the button directly to the chat item
+          const folderButton = document.createElement("button");
+          folderButton.className = "folder-add-button";
+          folderButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`;
+          folderButton.style.cssText = `
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(58, 132, 255, 0.1);
+            border: 1px solid rgba(58, 132, 255, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 4px;
+            opacity: 0;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            min-width: 24px;
+            min-height: 24px;
+          `;
+          (chatItem as HTMLElement).style.position = "relative";
+          chatItem.appendChild(folderButton);
+
+          chatItem.addEventListener("mouseenter", () => {
+            folderButton.style.opacity = "1";
+            folderButton.style.background = "rgba(58, 132, 255, 0.2)";
+            folderButton.style.borderColor = "rgba(58, 132, 255, 0.5)";
+          });
+
+          chatItem.addEventListener("mouseleave", () => {
+            folderButton.style.opacity = "0";
+            folderButton.style.background = "rgba(58, 132, 255, 0.1)";
+            folderButton.style.borderColor = "rgba(58, 132, 255, 0.3)";
+          });
+
+          folderButton.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const chatId = chatItem.getAttribute("href")?.split("/c/")[1];
+            if (chatId) {
+              // Create a Conversation object for the selected chat
+              const chatTitle =
+                chatItem.textContent?.trim() || `Chat ${chatId}`;
+              const chatUrl = `/c/${chatId}`;
+
+              // Set the selected chat for folders with the chat information
+              useSidePanelStore.getState().setSelectedChatForFolders({
+                id: chatId,
+                title: chatTitle,
+                url: chatUrl,
+                preview: "",
+                platform: "chatgpt",
+                timestamp: Date.now(),
+                folderIds: [],
+              });
+
+              // Show the folder selection modal
+              useSidePanelStore.getState().setShowFolderSelectionModal(true);
+            }
+          });
+        }
 
         // Add click handler to the chat item itself to prevent default navigation
         chatItem.addEventListener("click", (e) => {
           // Only prevent default if it's a saved chat (has a folder button) and not a programmatic navigation
           if (
-            chatItem.querySelector(".folder-button") &&
+            chatItem.querySelector(".folder-add-button") &&
             !chatItem.hasAttribute("data-programmatic-navigation")
           ) {
             e.preventDefault();
@@ -167,6 +263,15 @@ const addFolderButtonToChats = (() => {
     });
   };
 })();
+
+// Function to manually trigger adding folder buttons to chats
+const triggerAddFolderButtons = () => {
+  console.log("Manually triggering addFolderButtonToChats");
+  addFolderButtonToChats();
+};
+
+// Make the function available globally for debugging/testing
+(window as any).triggerAddFolderButtons = triggerAddFolderButtons;
 
 // Function to insert new folder button above target element
 
@@ -857,6 +962,7 @@ const App: React.FC = () => {
 
         insertNewFolderButtonAboveTarget();
         addDownloadButtonToAnswers(); // Add download buttons
+        addFolderButtonToChats(); // Add folder buttons to chat items
 
         // Render NewFolderButtonComponent in the specified class
         const targetElement = document.querySelector(
@@ -877,6 +983,11 @@ const App: React.FC = () => {
       // Initial setup
       addFolderButtonsToSidenav();
 
+      // Set up a periodic check to ensure buttons are added
+      const intervalId = setInterval(() => {
+        addFolderButtonToChats();
+      }, 2000); // Check every 2 seconds
+
       // Set up observer for the entire document to detect when sidenav is reopened
       const documentObserver = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
@@ -886,6 +997,8 @@ const App: React.FC = () => {
             if (sidebar) {
               addFolderButtonsToSidenav();
             }
+            // Also check for new chat items
+            addFolderButtonToChats();
           }
         }
       });
@@ -898,6 +1011,7 @@ const App: React.FC = () => {
 
       return () => {
         documentObserver.disconnect();
+        clearInterval(intervalId);
       };
     }
   }, [platform]);
