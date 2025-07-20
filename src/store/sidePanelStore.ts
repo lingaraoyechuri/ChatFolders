@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { Folder, Conversation, Platform } from "../types/sidePanel";
+import { useAuthStore } from "./authStore";
+import { cloudStorage } from "../services/cloudStorage";
 
 // Load initial state from localStorage
 const loadInitialState = () => {
@@ -41,6 +43,13 @@ interface SidePanelState {
   selectedChatForFolders: Conversation | null;
   editingFolderName: string;
   editingFolderEmoji: string;
+
+  // Cloud storage state
+  isOnline: boolean;
+  syncStatus: "syncing" | "synced" | "error" | "offline";
+  lastSync: Date | null;
+  isCloudEnabled: boolean;
+
   // Actions
   setFolders: (folders: Folder[]) => void;
   addFolder: (folder: Folder) => void;
@@ -63,6 +72,7 @@ interface SidePanelState {
   closeAddChatsModal: () => void;
   toggleChatSelection: (chatId: string) => void;
   getAvailableChats: () => Promise<Conversation[]>;
+
   // New actions for FolderItem
   setEditingFolderId: (id: string | null) => void;
   toggleFolderExpansion: (folderId: string) => void;
@@ -76,14 +86,28 @@ interface SidePanelState {
     event?: React.MouseEvent
   ) => void;
   getFolderConversations: (folderId: string) => Conversation[];
+
   // New actions for FolderSelectionModal
   setSelectedChatForFolders: (chat: Conversation | null) => void;
+
   // New actions for NewFolderForm
   setEditingFolderName: (name: string) => void;
   setEditingFolderEmoji: (emoji: string) => void;
   handleCancelNewFolder: () => void;
   handleCancelEdit: () => void;
   updateFolderName: (folderId: string, newName: string) => void;
+
+  // Cloud storage actions
+  enableCloudStorage: () => Promise<void>;
+  disableCloudStorage: () => void;
+  syncToCloud: () => Promise<void>;
+  syncFromCloud: () => Promise<void>;
+  migrateToCloud: () => Promise<void>;
+  setupCloudListeners: () => void;
+  cleanupCloudListeners: () => void;
+  setSyncStatus: (status: "syncing" | "synced" | "error" | "offline") => void;
+  setLastSync: (date: Date | null) => void;
+  setIsOnline: (online: boolean) => void;
 }
 
 export const useSidePanelStore = create<SidePanelState>((set, get) => ({
@@ -105,27 +129,69 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
   editingFolderName: "",
   editingFolderEmoji: "📁",
 
+  // Cloud storage state
+  isOnline: navigator.onLine,
+  syncStatus: "offline",
+  lastSync: null,
+  isCloudEnabled: false,
+
   setFolders: (folders) => {
     set({ folders });
     saveFoldersToStorage(folders);
+
+    // Sync to cloud if enabled
+    if (get().isCloudEnabled && get().isOnline) {
+      const authStore = useAuthStore.getState();
+      if (authStore.user) {
+        get().syncToCloud();
+      }
+    }
   },
+
   addFolder: (folder) => {
     const newFolders = [...get().folders, folder];
     set({ folders: newFolders });
     saveFoldersToStorage(newFolders);
+
+    // Sync to cloud if enabled
+    if (get().isCloudEnabled && get().isOnline) {
+      const authStore = useAuthStore.getState();
+      if (authStore.user) {
+        cloudStorage.saveFolder(authStore.user.uid, folder);
+      }
+    }
   },
+
   updateFolder: (folder) => {
     const newFolders = get().folders.map((f) =>
       f.id === folder.id ? folder : f
     );
     set({ folders: newFolders });
     saveFoldersToStorage(newFolders);
+
+    // Sync to cloud if enabled
+    if (get().isCloudEnabled && get().isOnline) {
+      const authStore = useAuthStore.getState();
+      if (authStore.user) {
+        cloudStorage.updateFolder(authStore.user.uid, folder);
+      }
+    }
   },
+
   deleteFolder: (folderId) => {
     const newFolders = get().folders.filter((f) => f.id !== folderId);
     set({ folders: newFolders });
     saveFoldersToStorage(newFolders);
+
+    // Sync to cloud if enabled
+    if (get().isCloudEnabled && get().isOnline) {
+      const authStore = useAuthStore.getState();
+      if (authStore.user) {
+        cloudStorage.deleteFolder(authStore.user.uid, folderId);
+      }
+    }
   },
+
   setSelectedFolder: (folder) => set({ selectedFolder: folder }),
   setIsOpen: (isOpen) => set({ isOpen }),
   setNewFolderName: (name) => set({ newFolderName: name }),
@@ -741,4 +807,107 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       editingFolderEmoji: "📁",
       showNewFolderModal: false,
     }),
+
+  // Cloud storage actions
+  enableCloudStorage: async () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.isAuthenticated) {
+      throw new Error("User must be authenticated to enable cloud storage");
+    }
+
+    set({ isCloudEnabled: true, syncStatus: "syncing" });
+
+    try {
+      // Migrate existing local data to cloud
+      await get().migrateToCloud();
+
+      // Set up real-time listeners
+      get().setupCloudListeners();
+
+      set({ syncStatus: "synced", lastSync: new Date() });
+    } catch (error) {
+      console.error("Error enabling cloud storage:", error);
+      set({ syncStatus: "error" });
+      throw error;
+    }
+  },
+
+  disableCloudStorage: () => {
+    get().cleanupCloudListeners();
+    set({ isCloudEnabled: false, syncStatus: "offline" });
+  },
+
+  syncToCloud: async () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.user || !get().isCloudEnabled) return;
+
+    set({ syncStatus: "syncing" });
+
+    try {
+      await cloudStorage.syncToCloud(authStore.user.uid, get().folders);
+      await cloudStorage.updateLastSync(authStore.user.uid);
+      set({ syncStatus: "synced", lastSync: new Date() });
+    } catch (error) {
+      console.error("Error syncing to cloud:", error);
+      set({ syncStatus: "error" });
+    }
+  },
+
+  syncFromCloud: async () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.user || !get().isCloudEnabled) return;
+
+    set({ syncStatus: "syncing" });
+
+    try {
+      const cloudFolders = await cloudStorage.getUserFolders(
+        authStore.user.uid
+      );
+      set({ folders: cloudFolders });
+      saveFoldersToStorage(cloudFolders);
+      set({ syncStatus: "synced", lastSync: new Date() });
+    } catch (error) {
+      console.error("Error syncing from cloud:", error);
+      set({ syncStatus: "error" });
+    }
+  },
+
+  migrateToCloud: async () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.user) return;
+
+    try {
+      const localFolders = get().folders;
+      await cloudStorage.migrateToCloud(authStore.user.uid, localFolders);
+      await cloudStorage.updateLastSync(authStore.user.uid);
+      set({ lastSync: new Date() });
+    } catch (error) {
+      console.error("Error migrating to cloud:", error);
+      throw error;
+    }
+  },
+
+  setupCloudListeners: () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.user) return;
+
+    try {
+      // Set up real-time listener for all folders
+      cloudStorage.setupFoldersListener(authStore.user.uid, (folders) => {
+        set({ folders });
+        saveFoldersToStorage(folders);
+        set({ lastSync: new Date() });
+      });
+    } catch (error) {
+      console.error("Error setting up cloud listeners:", error);
+    }
+  },
+
+  cleanupCloudListeners: () => {
+    cloudStorage.cleanup();
+  },
+
+  setSyncStatus: (status) => set({ syncStatus: status }),
+  setLastSync: (date) => set({ lastSync: date }),
+  setIsOnline: (online) => set({ isOnline: online }),
 }));

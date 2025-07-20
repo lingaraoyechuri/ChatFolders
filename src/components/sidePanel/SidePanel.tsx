@@ -7,6 +7,7 @@ import { Folder } from "../../types/sidePanel";
 import * as S from "../../styles/sidePanel";
 import { NewFolderModal } from "./NewFolderModal";
 import { AddChatsModal } from "./AddChatsModal";
+import { CloudStorageStatus } from "../cloud/CloudStorageStatus";
 
 export const SidePanel: React.FC<SidePanelProps> = ({
   isOpen,
@@ -186,6 +187,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({
 
       <NewFolderModal />
       {selectedFolder && <AddChatsModal folder={selectedFolder} />}
+      <CloudStorageStatus />
     </S.SidePanelContainer>
   );
 };
