@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import { useAuthStore } from "../../store/authStore";
 import { useSidePanelStore } from "../../store/sidePanelStore";
+import { useSubscriptionStore } from "../../store/subscriptionStore";
 
 interface AuthButtonProps {
   onShowAuthModal: () => void;
@@ -180,6 +181,17 @@ const LogoutButton = styled(DropdownItem)`
   }
 `;
 
+const UpgradeButton = styled(DropdownItem)`
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 6px;
+  margin-top: 8px;
+
+  &:hover {
+    background-color: #2563eb;
+  }
+`;
+
 const DropdownIconSmall = styled.svg`
   width: 16px;
   height: 16px;
@@ -195,6 +207,7 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onShowAuthModal }) => {
     enableCloudStorage,
     disableCloudStorage,
   } = useSidePanelStore();
+  const { currentPlan } = useSubscriptionStore();
 
   console.log("AuthButton: Component rendered", { isAuthenticated, user });
 
@@ -384,6 +397,33 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onShowAuthModal }) => {
                     : "Enable Cloud Storage"}
                 </span>
               </DropdownItem>
+
+              {currentPlan?.priority === "free" && (
+                <UpgradeButton
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent("showSubscriptionModal", {
+                        detail: { trigger: "upgrade" },
+                      })
+                    );
+                    setShowDropdown(false);
+                  }}
+                >
+                  <DropdownIconSmall
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </DropdownIconSmall>
+                  <span>Upgrade Plan</span>
+                </UpgradeButton>
+              )}
 
               <LogoutButton onClick={handleLogout}>
                 <DropdownIconSmall

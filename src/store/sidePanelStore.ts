@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Folder, Conversation, Platform } from "../types/sidePanel";
 import { useAuthStore } from "./authStore";
+import { useSubscriptionStore } from "./subscriptionStore";
 import { cloudStorage } from "../services/cloudStorage";
 
 // Load initial state from localStorage
@@ -149,6 +150,20 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
   },
 
   addFolder: (folder) => {
+    // Check subscription limits
+    const subscriptionStore = useSubscriptionStore.getState();
+    const { canCreateFolder } = subscriptionStore.checkUsageLimits();
+
+    if (!canCreateFolder) {
+      // Emit event to show subscription modal
+      window.dispatchEvent(
+        new CustomEvent("showSubscriptionModal", {
+          detail: { trigger: "limit-reached" },
+        })
+      );
+      return;
+    }
+
     const newFolders = [...get().folders, folder];
     set({ folders: newFolders });
     saveFoldersToStorage(newFolders);
@@ -160,6 +175,9 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
         cloudStorage.saveFolder(authStore.user.uid, folder);
       }
     }
+
+    // Update usage metrics
+    subscriptionStore.updateUsageMetrics();
   },
 
   updateFolder: (folder) => {
@@ -675,6 +693,20 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
     const { selectedFolder, selectedChats } = get();
     if (!selectedFolder) return;
 
+    // Check subscription limits
+    const subscriptionStore = useSubscriptionStore.getState();
+    const { canAddChat } = subscriptionStore.checkUsageLimits();
+
+    if (!canAddChat) {
+      // Emit event to show subscription modal
+      window.dispatchEvent(
+        new CustomEvent("showSubscriptionModal", {
+          detail: { trigger: "limit-reached" },
+        })
+      );
+      return;
+    }
+
     // Filter out chats that already exist in the folder
     const existingChatIds = new Set(
       selectedFolder.conversations.map((conv) => conv.id)
@@ -742,6 +774,9 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
         selectedChats: [],
         showAddChatsModal: false,
       });
+
+      // Update usage metrics
+      subscriptionStore.updateUsageMetrics();
     } catch (error) {
       console.error("Error adding chats to folder:", error);
       // Still close the modal even if there's an error

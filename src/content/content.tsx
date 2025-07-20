@@ -21,7 +21,9 @@ import { AddChatsModal } from "../components/sidePanel/AddChatsModal";
 import { CloudStorageStatus } from "../components/cloud/CloudStorageStatus";
 import { AuthButton } from "../components/auth/AuthButton";
 import { AuthModal } from "../components/auth/AuthModal";
+import { SubscriptionModal } from "../components/subscription/SubscriptionModal";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { useSubscriptionStore } from "../store/subscriptionStore";
 
 // Added NewFolderModal component from your interfac
 
@@ -606,6 +608,11 @@ const App: React.FC = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const questionsCardRef = React.useRef<HTMLDivElement>(null);
   const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] =
+    React.useState(false);
+  const [subscriptionTrigger, setSubscriptionTrigger] = React.useState<
+    "upgrade" | "limit-reached" | "feature-gated"
+  >("upgrade");
 
   // Auth and cloud storage state
   const {
@@ -621,6 +628,8 @@ const App: React.FC = () => {
     setupCloudListeners,
     cleanupCloudListeners,
   } = useSidePanelStore();
+
+  const { initializeSubscription, updateUsageMetrics } = useSubscriptionStore();
 
   // Initialize authentication
   React.useEffect(() => {
@@ -664,6 +673,33 @@ const App: React.FC = () => {
     setupCloudListeners,
     cleanupCloudListeners,
   ]);
+
+  // Initialize subscription when authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      initializeSubscription();
+    }
+  }, [isAuthenticated, user, initializeSubscription]);
+
+  // Handle subscription modal events
+  React.useEffect(() => {
+    const handleShowSubscriptionModal = (event: CustomEvent) => {
+      setSubscriptionTrigger(event.detail.trigger || "upgrade");
+      setShowSubscriptionModal(true);
+    };
+
+    window.addEventListener(
+      "showSubscriptionModal",
+      handleShowSubscriptionModal as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "showSubscriptionModal",
+        handleShowSubscriptionModal as EventListener
+      );
+    };
+  }, []);
 
   // Add event listener for chat navigation
   React.useEffect(() => {
@@ -1172,6 +1208,11 @@ const App: React.FC = () => {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         onSuccess={() => setShowAuthModal(false)}
+      />
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        trigger={subscriptionTrigger}
       />
     </>
   );
