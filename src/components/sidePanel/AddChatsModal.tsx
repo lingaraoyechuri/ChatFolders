@@ -270,7 +270,7 @@ export const AddChatsModal: React.FC<AddChatsModalProps> = ({
               padding: "8px 16px",
             }}
           >
-            {isLoading ? "Loading Chats..." : "Refresh Chats"}
+            {isLoading ? "Loading Chats..." : "Load Chats"}
           </MuiButton>
         </div>
 

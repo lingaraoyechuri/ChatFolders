@@ -9,9 +9,11 @@ import {
 import {
   SUBSCRIPTION_PLANS,
   getDefaultPlan,
+  getPlanById,
 } from "../config/subscriptionPlans";
 import { useAuthStore } from "./authStore";
 import { useSidePanelStore } from "./sidePanelStore";
+import { subscriptionAPI, withRetry } from "../services/api";
 
 interface SubscriptionActions {
   // Subscription management
@@ -126,10 +128,14 @@ export const useSubscriptionStore = create<
 
       set({ usageMetrics: metrics });
 
-      // Save to cloud storage if available
+      // Save to backend API if cloud storage is available
       if (get().checkFeatureAccess("cloudStorage")) {
-        // TODO: Save to Firestore
-        console.log("Saving usage metrics to cloud storage");
+        try {
+          await withRetry(() => subscriptionAPI.updateUsageMetrics(metrics));
+          console.log("Usage metrics saved to backend");
+        } catch (error) {
+          console.error("Failed to save usage metrics to backend:", error);
+        }
       }
     } catch (error) {
       console.error("Error updating usage metrics:", error);
@@ -171,21 +177,22 @@ export const useSubscriptionStore = create<
     try {
       set({ isLoading: true, error: null });
 
-      // TODO: Call your backend API to create Stripe checkout session
-      // For now, we'll simulate this
-      console.log("Creating checkout session for plan:", planId);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Return a mock checkout URL
-      const checkoutUrl = `https://checkout.stripe.com/pay/cs_test_${planId}#fidkdXx0YmxSdDd`;
+      // Call backend API to create Stripe checkout session
+      const checkoutSession = await withRetry(() =>
+        subscriptionAPI.createCheckoutSession(planId)
+      );
 
       set({ isLoading: false });
-      return checkoutUrl;
+      return checkoutSession.url;
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      set({ error: "Failed to create checkout session", isLoading: false });
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create checkout session",
+        isLoading: false,
+      });
       throw error;
     }
   },
@@ -199,11 +206,8 @@ export const useSubscriptionStore = create<
     try {
       set({ isLoading: true, error: null });
 
-      // TODO: Call your backend API to cancel subscription
-      console.log("Canceling subscription:", userSubscription.id);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Call backend API to cancel subscription
+      await withRetry(() => subscriptionAPI.cancelSubscription());
 
       // Update local state
       set({
@@ -213,7 +217,13 @@ export const useSubscriptionStore = create<
       });
     } catch (error) {
       console.error("Error canceling subscription:", error);
-      set({ error: "Failed to cancel subscription", isLoading: false });
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to cancel subscription",
+        isLoading: false,
+      });
       throw error;
     }
   },
@@ -227,11 +237,8 @@ export const useSubscriptionStore = create<
     try {
       set({ isLoading: true, error: null });
 
-      // TODO: Call your backend API to reactivate subscription
-      console.log("Reactivating subscription:", userSubscription.id);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Call backend API to reactivate subscription
+      await withRetry(() => subscriptionAPI.reactivateSubscription());
 
       // Update local state
       set({
@@ -240,7 +247,13 @@ export const useSubscriptionStore = create<
       });
     } catch (error) {
       console.error("Error reactivating subscription:", error);
-      set({ error: "Failed to reactivate subscription", isLoading: false });
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to reactivate subscription",
+        isLoading: false,
+      });
       throw error;
     }
   },
@@ -252,24 +265,43 @@ export const useSubscriptionStore = create<
     try {
       set({ isLoading: true, error: null });
 
-      // TODO: Fetch user subscription from backend/Firestore
-      console.log("Initializing subscription for user:", authStore.user.uid);
+      // Fetch user subscription from backend API
+      const [userSubscription, usageMetrics] = await Promise.all([
+        withRetry(() => subscriptionAPI.getUserSubscription()),
+        withRetry(() => subscriptionAPI.getUsageMetrics()),
+      ]);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Determine current plan based on subscription
+      let currentPlan = SUBSCRIPTION_PLANS.FREE;
+      if (userSubscription) {
+        const plan = getPlanById(userSubscription.planId);
+        if (plan) {
+          currentPlan = plan;
+        }
+      }
 
-      // For now, set default free plan
       set({
-        currentPlan: SUBSCRIPTION_PLANS.FREE,
-        userSubscription: null,
+        currentPlan,
+        userSubscription,
+        usageMetrics,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("Error initializing subscription:", error);
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to initialize subscription",
         isLoading: false,
       });
 
-      // Update usage metrics
-      await get().updateUsageMetrics();
-    } catch (error) {
-      console.error("Error initializing subscription:", error);
-      set({ error: "Failed to initialize subscription", isLoading: false });
+      // Set default free plan on error
+      set({
+        currentPlan: SUBSCRIPTION_PLANS.FREE,
+        userSubscription: null,
+        usageMetrics: null,
+      });
     }
   },
 }));

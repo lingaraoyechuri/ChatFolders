@@ -387,8 +387,8 @@ export const FolderComponent: React.FC<FolderComponentProps> = ({
 
   return (
     <FolderCard>
-      <FolderHeader>
-        <FolderTitle onClick={handleToggleExpand}>
+      <FolderHeader onClick={handleToggleExpand}>
+        <FolderTitle>
           <FolderEmoji>{folder.emoji}</FolderEmoji>
           {isEditing ? (
             <FolderNameInput

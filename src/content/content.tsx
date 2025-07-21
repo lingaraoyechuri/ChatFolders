@@ -24,13 +24,18 @@ import { AuthModal } from "../components/auth/AuthModal";
 import { SubscriptionModal } from "../components/subscription/SubscriptionModal";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { useSubscriptionStore } from "../store/subscriptionStore";
+import { WebhookHandler } from "../components/subscription/WebhookHandler";
 
 // Added NewFolderModal component from your interfac
 
 // Function to add folder button to chats
+// NOTE: This function is now MANUAL ONLY - it will not be called automatically
+// To trigger it manually, use: triggerAddFolderButtons() in the browser console
 const addFolderButtonToChats = (() => {
   let lastRunTime = 0;
   const DEBOUNCE_DELAY = 500; // 500ms debounce
+  let lastChatCount = 0; // Track the last number of chats found
+  const DEBUG_MODE = process.env.NODE_ENV === "development"; // Only log in development
 
   return () => {
     const now = Date.now();
@@ -57,7 +62,9 @@ const addFolderButtonToChats = (() => {
         const items = Array.from(document.querySelectorAll(selector));
         allChatItems = [...allChatItems, ...items];
       } catch (error) {
-        console.warn(`Failed to query selector: ${selector}`, error);
+        if (DEBUG_MODE) {
+          console.warn(`Failed to query selector: ${selector}`, error);
+        }
       }
     });
 
@@ -70,8 +77,19 @@ const addFolderButtonToChats = (() => {
     });
 
     console.log(
-      `addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items`
+      `addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items (was ${lastChatCount})`
     );
+
+    // Only log if the number of chats has changed or if it's the first run
+    if (uniqueChatItems.length !== lastChatCount && DEBUG_MODE) {
+      console.log(
+        `addFolderButtonToChats: Found ${uniqueChatItems.length} unique chat items (was ${lastChatCount})`
+      );
+      lastChatCount = uniqueChatItems.length;
+    }
+
+    // Count how many buttons we actually add
+    let buttonsAdded = 0;
 
     uniqueChatItems.forEach((chatItem) => {
       if (!chatItem.querySelector(".folder-add-button")) {
@@ -159,6 +177,8 @@ const addFolderButtonToChats = (() => {
               useSidePanelStore.getState().setShowFolderSelectionModal(true);
             }
           });
+
+          buttonsAdded++;
         } else {
           // Fallback: if we can't find the trailing section, add the button directly to the chat item
           const folderButton = document.createElement("button");
@@ -225,6 +245,8 @@ const addFolderButtonToChats = (() => {
               useSidePanelStore.getState().setShowFolderSelectionModal(true);
             }
           });
+
+          buttonsAdded++;
         }
 
         // Add click handler to the chat item itself to prevent default navigation
@@ -267,6 +289,13 @@ const addFolderButtonToChats = (() => {
         });
       }
     });
+
+    // Only log if we actually added buttons
+    if (buttonsAdded > 0 && DEBUG_MODE) {
+      console.log(
+        `addFolderButtonToChats: Added ${buttonsAdded} folder buttons`
+      );
+    }
   };
 })();
 
@@ -277,6 +306,7 @@ const triggerAddFolderButtons = () => {
 };
 
 // Make the function available globally for debugging/testing
+// Usage: In browser console, type: triggerAddFolderButtons()
 (window as any).triggerAddFolderButtons = triggerAddFolderButtons;
 
 // Function to insert new folder button above target element
@@ -1061,7 +1091,7 @@ const App: React.FC = () => {
 
         insertNewFolderButtonAboveTarget();
         addDownloadButtonToAnswers(); // Add download buttons
-        addFolderButtonToChats(); // Add folder buttons to chat items
+        // Removed automatic call to addFolderButtonToChats - now manual only
 
         // Render NewFolderButtonComponent in the specified class
         const targetElement = document.querySelector(
@@ -1082,10 +1112,7 @@ const App: React.FC = () => {
       // Initial setup
       addFolderButtonsToSidenav();
 
-      // Set up a periodic check to ensure buttons are added
-      const intervalId = setInterval(() => {
-        addFolderButtonToChats();
-      }, 2000); // Check every 2 seconds
+      // Removed automatic interval - no more periodic calls
 
       // Set up observer for the entire document to detect when sidenav is reopened
       const documentObserver = new MutationObserver((mutations) => {
@@ -1096,8 +1123,7 @@ const App: React.FC = () => {
             if (sidebar) {
               addFolderButtonsToSidenav();
             }
-            // Also check for new chat items
-            addFolderButtonToChats();
+            // Removed automatic call to addFolderButtonToChats - now manual only
           }
         }
       });
@@ -1110,7 +1136,6 @@ const App: React.FC = () => {
 
       return () => {
         documentObserver.disconnect();
-        clearInterval(intervalId);
       };
     }
   }, [platform]);
@@ -1179,7 +1204,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <>
+    <WebhookHandler>
       <QuestionsToggleButton
         showQuestions={showQuestions}
         onToggle={() => setShowQuestions(!showQuestions)}
@@ -1214,7 +1239,7 @@ const App: React.FC = () => {
         onClose={() => setShowSubscriptionModal(false)}
         trigger={subscriptionTrigger}
       />
-    </>
+    </WebhookHandler>
   );
 };
 
