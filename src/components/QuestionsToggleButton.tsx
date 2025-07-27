@@ -1,11 +1,11 @@
 import React from "react";
 import styled from "styled-components";
 
-const Button = styled.button`
+const Button = styled.button<{ isActive: boolean }>`
   position: fixed;
-  top: 50px;
+  top: 100px;
   right: 20px;
-  background: #1a1a1a;
+  background: ${(props) => (props.isActive ? "#3b82f6" : "#1a1a1a")};
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -20,7 +20,7 @@ const Button = styled.button`
   transition: background-color 0.2s;
 
   &:hover {
-    background: #2a2a2a;
+    background: ${(props) => (props.isActive ? "#2563eb" : "#2a2a2a")};
   }
 `;
 
@@ -34,8 +34,12 @@ export const QuestionsToggleButton: React.FC<QuestionsToggleButtonProps> = ({
   onToggle,
 }) => {
   return (
-    <Button onClick={onToggle}>
-      {showQuestions ? "Hide Questions" : "Show Questions"}
+    <Button
+      onClick={onToggle}
+      className="questions-toggle-button"
+      isActive={showQuestions}
+    >
+      {showQuestions ? "Hide Prompts" : "Show Prompts"}
     </Button>
   );
 };

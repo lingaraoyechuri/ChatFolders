@@ -808,7 +808,9 @@ const App: React.FC = () => {
       if (
         showQuestions &&
         questionsCardRef.current &&
-        !questionsCardRef.current.contains(event.target as Node)
+        !questionsCardRef.current.contains(event.target as Node) &&
+        // Also check if the click is not on the toggle button
+        !(event.target as Element)?.closest(".questions-toggle-button")
       ) {
         setShowQuestions(false);
       }
@@ -1207,7 +1209,10 @@ const App: React.FC = () => {
     <WebhookHandler>
       <QuestionsToggleButton
         showQuestions={showQuestions}
-        onToggle={() => setShowQuestions(!showQuestions)}
+        onToggle={() => {
+          // Add a small delay to prevent race conditions with click outside handler
+          setTimeout(() => setShowQuestions(!showQuestions), 10);
+        }}
       />
       {showQuestions && (
         <div ref={questionsCardRef}>

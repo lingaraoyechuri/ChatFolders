@@ -67,7 +67,6 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
   return (
     <Card>
-      <Title>Questions</Title>
       <QuestionList>
         {questions.map((question, index) => (
           <QuestionItem
