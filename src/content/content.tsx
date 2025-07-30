@@ -627,6 +627,67 @@ const addDownloadButtonToAnswers = () => {
   });
 };
 
+// Function to insert QuestionsToggleButton into conversation header
+const insertQuestionsButtonToHeader = () => {
+  const headerActions = document.getElementById("conversation-header-actions");
+  if (!headerActions) {
+    return;
+  }
+
+  // Check if our button already exists
+  if (headerActions.querySelector(".questions-toggle-button")) {
+    return;
+  }
+
+  // Create the button element
+  const questionsButton = document.createElement("button");
+  questionsButton.className =
+    "btn relative btn-ghost text-token-text-primary questions-toggle-button";
+  questionsButton.setAttribute("aria-label", "Toggle Prompts");
+  questionsButton.setAttribute("data-testid", "questions-toggle-button");
+
+  questionsButton.innerHTML = `
+    <div class="flex w-full items-center justify-center gap-1.5">
+      <span class="questions-button-text">Prompts</span>
+    </div>
+  `;
+
+  // Insert before the first button (share button)
+  const firstButton = headerActions.querySelector("button");
+  if (firstButton) {
+    headerActions.insertBefore(questionsButton, firstButton);
+  } else {
+    headerActions.appendChild(questionsButton);
+  }
+
+  // Add click handler
+  questionsButton.addEventListener("click", () => {
+    // Dispatch a custom event that the React component can listen to
+    window.dispatchEvent(new CustomEvent("toggleQuestions"));
+  });
+};
+
+// Function to update the questions button state
+const updateQuestionsButtonState = (isActive: boolean) => {
+  const questionsButton = document.querySelector(".questions-toggle-button");
+  if (questionsButton) {
+    const buttonText = questionsButton.querySelector(".questions-button-text");
+    if (buttonText) {
+      buttonText.textContent = "Prompts";
+    }
+
+    // Update button styling
+    const buttonElement = questionsButton as HTMLElement;
+    if (isActive) {
+      questionsButton.classList.add("active");
+      buttonElement.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+    } else {
+      questionsButton.classList.remove("active");
+      buttonElement.style.backgroundColor = "";
+    }
+  }
+};
+
 // App component
 const App: React.FC = () => {
   const [platform, setPlatform] = React.useState<
@@ -809,7 +870,7 @@ const App: React.FC = () => {
         showQuestions &&
         questionsCardRef.current &&
         !questionsCardRef.current.contains(event.target as Node) &&
-        // Also check if the click is not on the toggle button
+        // Also check if the click is not on the toggle button in header
         !(event.target as Element)?.closest(".questions-toggle-button")
       ) {
         setShowQuestions(false);
@@ -1081,6 +1142,38 @@ const App: React.FC = () => {
       }
     }
   };
+  // Add event listener for questions toggle
+  React.useEffect(() => {
+    const handleToggleQuestions = () => {
+      setShowQuestions(!showQuestions);
+    };
+
+    window.addEventListener("toggleQuestions", handleToggleQuestions);
+    return () => {
+      window.removeEventListener("toggleQuestions", handleToggleQuestions);
+    };
+  }, [showQuestions]);
+
+  // Update the header button state when showQuestions changes
+  React.useEffect(() => {
+    updateQuestionsButtonState(showQuestions);
+  }, [showQuestions]);
+
+  // Ensure questions button is in header when URL changes or component mounts
+  React.useEffect(() => {
+    if (platform === "chatgpt") {
+      // Try to insert immediately
+      insertQuestionsButtonToHeader();
+
+      // Also try after a short delay to ensure DOM is ready
+      const timeoutId = setTimeout(() => {
+        insertQuestionsButtonToHeader();
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [platform, currentChatId]);
+
   // Add folder button observer effect
   React.useEffect(() => {
     if (platform === "chatgpt") {
@@ -1124,6 +1217,13 @@ const App: React.FC = () => {
             const sidebar = document.querySelector('nav[class*="flex-col"]');
             if (sidebar) {
               addFolderButtonsToSidenav();
+            }
+            // Also check if the header actions were added
+            const headerActions = document.getElementById(
+              "conversation-header-actions"
+            );
+            if (headerActions) {
+              insertQuestionsButtonToHeader();
             }
             // Removed automatic call to addFolderButtonToChats - now manual only
           }
@@ -1207,13 +1307,6 @@ const App: React.FC = () => {
 
   return (
     <WebhookHandler>
-      <QuestionsToggleButton
-        showQuestions={showQuestions}
-        onToggle={() => {
-          // Add a small delay to prevent race conditions with click outside handler
-          setTimeout(() => setShowQuestions(!showQuestions), 10);
-        }}
-      />
       {showQuestions && (
         <div ref={questionsCardRef}>
           <QuestionsCard

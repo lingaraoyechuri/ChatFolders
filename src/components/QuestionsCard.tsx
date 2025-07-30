@@ -3,7 +3,7 @@ import styled from "styled-components";
 
 const Card = styled.div`
   position: fixed;
-  top: 100px;
+  top: 80px;
   right: 20px;
   width: 300px;
   max-height: 400px;

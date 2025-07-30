@@ -40,10 +40,10 @@ const AuthButtonElement = styled.button`
   border-radius: 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  padding: 8px 16px;
+  padding: 6px 12px; /* Reduced padding for smaller button */
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px; /* Reduced gap */
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: system-ui, -apple-system, sans-serif;
@@ -51,8 +51,8 @@ const AuthButtonElement = styled.button`
   user-select: none;
   position: relative;
   z-index: 2;
-  min-width: 120px;
-  min-height: 40px;
+  min-width: 80px; /* Reduced width for smaller button */
+  min-height: 32px; /* Reduced height for smaller button */
 
   &:hover {
     background-color: #f9fafb;
@@ -62,8 +62,8 @@ const AuthButtonElement = styled.button`
 `;
 
 const Avatar = styled.div`
-  width: 24px;
-  height: 24px;
+  width: 20px; /* Reduced from 24px */
+  height: 20px; /* Reduced from 24px */
   background-color: #dbeafe;
   border-radius: 50%;
   display: flex;
@@ -71,31 +71,34 @@ const Avatar = styled.div`
   justify-content: center;
 `;
 
+const AuthenticatedAvatar = styled.div`
+  width: 32px;
+  height: 32px;
+  background-color: #dbeafe;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+`;
+
 const AvatarText = styled.span`
   color: #2563eb;
-  font-size: 12px;
+  font-size: 10px; /* Reduced from 12px */
   font-weight: 500;
 `;
 
-const UserInfo = styled.div`
-  text-align: left;
-`;
-
-const UserName = styled.p`
-  font-size: 12px;
+const AuthenticatedAvatarText = styled.span`
+  color: #2563eb;
+  font-size: 14px;
   font-weight: 500;
-  color: #111827;
-  margin: 0;
-  max-width: 96px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const UserStatus = styled.p`
-  font-size: 12px;
-  color: #6b7280;
-  margin: 0;
 `;
 
 const DropdownIcon = styled.svg<{ isOpen: boolean }>`
@@ -309,62 +312,40 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onShowAuthModal }) => {
       <ButtonWrapper>
         <StatusIndicator color={getStatusColor()} title={getStatusTooltip()} />
 
-        <AuthButtonElement
-          className="auth-button-main"
-          onClick={handleAuthClick}
-          onMouseDown={(e) => {
-            console.log("AuthButton: mouseDown event fired");
-            e.stopPropagation();
-          }}
-          onMouseUp={(e) => {
-            console.log("AuthButton: mouseUp event fired");
-            e.stopPropagation();
-          }}
-          title={
-            isAuthenticated
-              ? `Signed in as ${user?.email}`
-              : "Sign in to enable cloud storage"
-          }
-        >
-          {isAuthenticated ? (
-            <>
-              <Avatar>
-                <AvatarText>{user?.email?.charAt(0).toUpperCase()}</AvatarText>
-              </Avatar>
-              <UserInfo>
-                <UserName>{user?.email?.split("@")[0]}</UserName>
-                <UserStatus>
-                  {isCloudEnabled ? "Cloud enabled" : "Local only"}
-                </UserStatus>
-              </UserInfo>
-              <DropdownIcon
-                isOpen={showDropdown}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </DropdownIcon>
-            </>
-          ) : (
-            <>
-              <SignInIcon fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </SignInIcon>
-              <SignInText>Sign In</SignInText>
-            </>
-          )}
-        </AuthButtonElement>
+        {isAuthenticated ? (
+          <AuthenticatedAvatar
+            onClick={handleAuthClick}
+            title={`Signed in as ${user?.email} - Click for options`}
+          >
+            <AuthenticatedAvatarText>
+              {user?.email?.charAt(0).toUpperCase()}
+            </AuthenticatedAvatarText>
+          </AuthenticatedAvatar>
+        ) : (
+          <AuthButtonElement
+            className="auth-button-main"
+            onClick={handleAuthClick}
+            onMouseDown={(e) => {
+              console.log("AuthButton: mouseDown event fired");
+              e.stopPropagation();
+            }}
+            onMouseUp={(e) => {
+              console.log("AuthButton: mouseUp event fired");
+              e.stopPropagation();
+            }}
+            title="Sign in to enable cloud storage"
+          >
+            <SignInIcon fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
+            </SignInIcon>
+            <SignInText>Sign In</SignInText>
+          </AuthButtonElement>
+        )}
 
         {showDropdown && isAuthenticated && (
           <Dropdown>

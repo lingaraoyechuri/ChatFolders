@@ -39,7 +39,7 @@ export const QuestionsToggleButton: React.FC<QuestionsToggleButtonProps> = ({
       className="questions-toggle-button"
       isActive={showQuestions}
     >
-      {showQuestions ? "Hide Prompts" : "Show Prompts"}
+      Prompts
     </Button>
   );
 };
