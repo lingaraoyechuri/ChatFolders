@@ -203,49 +203,18 @@ const DropdownIconSmall = styled.svg`
 export const AuthButton: React.FC<AuthButtonProps> = ({ onShowAuthModal }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const { user, isAuthenticated, logout } = useAuthStore();
-  const {
-    isCloudEnabled,
-    syncStatus,
-    isOnline,
-    enableCloudStorage,
-    disableCloudStorage,
-  } = useSidePanelStore();
   const { currentPlan } = useSubscriptionStore();
 
   console.log("AuthButton: Component rendered", { isAuthenticated, user });
 
   const getStatusColor = () => {
     if (!isAuthenticated) return "#6B7280"; // gray-500
-
-    switch (syncStatus) {
-      case "synced":
-        return "#10B981"; // green-500
-      case "syncing":
-        return "#F59E0B"; // yellow-500
-      case "error":
-        return "#EF4444"; // red-500
-      case "offline":
-        return "#6B7280"; // gray-500
-      default:
-        return "#6B7280"; // gray-500
-    }
+    return "#10B981"; // green-500 - always synced when authenticated
   };
 
   const getStatusTooltip = () => {
     if (!isAuthenticated) return "Sign in to enable cloud storage";
-
-    switch (syncStatus) {
-      case "synced":
-        return "Cloud storage synced";
-      case "syncing":
-        return "Syncing to cloud...";
-      case "error":
-        return "Sync error - click to retry";
-      case "offline":
-        return "Offline - changes will sync when online";
-      default:
-        return "Cloud storage status";
-    }
+    return "Cloud storage synced";
   };
 
   const handleAuthClick = () => {
@@ -259,19 +228,6 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onShowAuthModal }) => {
 
   const handleLogout = () => {
     logout();
-    setShowDropdown(false);
-  };
-
-  const handleToggleCloud = async () => {
-    try {
-      if (isCloudEnabled) {
-        disableCloudStorage();
-      } else {
-        await enableCloudStorage();
-      }
-    } catch (error) {
-      console.error("Failed to toggle cloud storage:", error);
-    }
     setShowDropdown(false);
   };
 
@@ -351,34 +307,10 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onShowAuthModal }) => {
           <Dropdown>
             <DropdownHeader>
               <DropdownTitle>{user?.email}</DropdownTitle>
-              <DropdownSubtitle>
-                {isCloudEnabled
-                  ? "Cloud storage enabled"
-                  : "Local storage only"}
-              </DropdownSubtitle>
+              <DropdownSubtitle>Cloud storage enabled</DropdownSubtitle>
             </DropdownHeader>
 
             <DropdownContent>
-              <DropdownItem onClick={handleToggleCloud} disabled={!isOnline}>
-                <DropdownIconSmall
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
-                  />
-                </DropdownIconSmall>
-                <span>
-                  {isCloudEnabled
-                    ? "Disable Cloud Storage"
-                    : "Enable Cloud Storage"}
-                </span>
-              </DropdownItem>
-
               {currentPlan?.priority === "free" && (
                 <UpgradeButton
                   onClick={() => {
