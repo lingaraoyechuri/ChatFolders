@@ -59,7 +59,7 @@ export const useSubscriptionStore = create<
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
-  checkFeatureAccess: (feature) => {
+  checkFeatureAccess: (feature: keyof FeatureLimits) => {
     const { currentPlan } = get();
     if (!currentPlan) return false;
 
@@ -69,15 +69,9 @@ export const useSubscriptionStore = create<
       case "exportFeatures":
         return currentPlan.priority !== "free";
       case "advancedAnalytics":
-        return (
-          currentPlan.priority === "pro" ||
-          currentPlan.priority === "enterprise"
-        );
+        return currentPlan.priority === "paid";
       case "prioritySupport":
-        return (
-          currentPlan.priority === "pro" ||
-          currentPlan.priority === "enterprise"
-        );
+        return currentPlan.priority === "paid";
       default:
         return true;
     }
@@ -92,10 +86,8 @@ export const useSubscriptionStore = create<
       maxChatsPerFolder: plan.maxChatsPerFolder,
       cloudStorage: plan.cloudStorage,
       exportFeatures: plan.priority !== "free",
-      advancedAnalytics:
-        plan.priority === "pro" || plan.priority === "enterprise",
-      prioritySupport:
-        plan.priority === "pro" || plan.priority === "enterprise",
+      advancedAnalytics: plan.priority === "paid",
+      prioritySupport: plan.priority === "paid",
     };
   },
 

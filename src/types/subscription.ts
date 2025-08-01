@@ -8,7 +8,7 @@ export interface SubscriptionPlan {
   maxFolders: number;
   maxChatsPerFolder: number;
   cloudStorage: boolean;
-  priority: "free" | "basic" | "pro" | "enterprise";
+  priority: "free" | "paid";
 }
 
 export interface UserSubscription {
@@ -41,9 +41,7 @@ export interface StripeCheckoutSession {
 
 export interface SubscriptionTier {
   FREE: SubscriptionPlan;
-  BASIC: SubscriptionPlan;
-  PRO: SubscriptionPlan;
-  ENTERPRISE: SubscriptionPlan;
+  PAID: SubscriptionPlan;
 }
 
 export interface FeatureLimits {

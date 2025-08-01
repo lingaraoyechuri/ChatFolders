@@ -138,13 +138,12 @@ app.post("/api/subscriptions/checkout", async (req, res) => {
 
     // Define plan prices (in cents)
     const planPrices = {
-      basic: 499,
-      pro: 999,
-      enterprise: 2999,
+      free: 0,
+      paid: 999,
     };
 
     const price = planPrices[planId];
-    if (!price) {
+    if (!price && planId !== "free") {
       return res.status(400).json({
         error: {
           message: "Invalid plan ID",

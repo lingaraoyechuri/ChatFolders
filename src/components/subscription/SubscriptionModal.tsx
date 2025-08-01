@@ -291,7 +291,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const renderPlanCard = (plan: SubscriptionPlan) => {
     const isCurrent = currentPlan?.id === plan.id;
-    const isPopular = plan.id === "pro";
+    const isPopular = plan.id === "paid"; // Changed from "pro" to "paid"
     const { canCreateFolder, canAddChat } = checkUsageLimits();
 
     return (
