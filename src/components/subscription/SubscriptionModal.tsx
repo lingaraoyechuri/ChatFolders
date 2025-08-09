@@ -32,7 +32,7 @@ const ModalContent = styled.div`
   border-radius: 12px;
   padding: 32px;
   width: 100%;
-  max-width: 800px;
+  max-width: 600px; /* Reduced from 800px for 2 plans */
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
@@ -48,14 +48,14 @@ const ModalHeader = styled.div`
 `;
 
 const ModalTitle = styled.h2`
-  font-size: 28px;
+  font-size: 24px; /* Reduced from 28px */
   font-weight: bold;
   color: #111827;
   margin: 0 0 8px 0;
 `;
 
 const ModalSubtitle = styled.p`
-  font-size: 16px;
+  font-size: 14px; /* Reduced from 16px */
   color: #6b7280;
   margin: 0;
 `;
@@ -79,8 +79,8 @@ const CloseButton = styled.button`
 
 const PlansGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: 1fr 1fr; /* Fixed 2-column layout */
+  gap: 20px; /* Reduced from 24px */
   margin-bottom: 32px;
 `;
 
@@ -89,7 +89,7 @@ const PlanCard = styled.div<{ isPopular?: boolean; isCurrent?: boolean }>`
     ${(props) =>
       props.isPopular ? "#3b82f6" : props.isCurrent ? "#10b981" : "#e5e7eb"};
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px; /* Reduced from 24px */
   position: relative;
   background-color: ${(props) => (props.isPopular ? "#f8fafc" : "#ffffff")};
   transition: all 0.2s ease;
@@ -281,22 +281,22 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const getTriggerMessage = () => {
     switch (trigger) {
       case "limit-reached":
-        return "You've reached your plan limits. Upgrade to continue creating folders and adding chats.";
+        return "You've reached your free plan limits. Upgrade to Pro for unlimited folders and chats.";
       case "feature-gated":
-        return "This feature requires a premium plan. Upgrade to unlock advanced features.";
+        return "This feature requires a Pro plan. Upgrade to unlock advanced features.";
       default:
-        return "Choose the perfect plan for your needs and unlock powerful features.";
+        return "Upgrade to Pro for unlimited folders, chats, and advanced features.";
     }
   };
 
   const renderPlanCard = (plan: SubscriptionPlan) => {
     const isCurrent = currentPlan?.id === plan.id;
-    const isPopular = plan.id === "paid"; // Changed from "pro" to "paid"
+    const isPopular = plan.id === "paid";
     const { canCreateFolder, canAddChat } = checkUsageLimits();
 
     return (
       <PlanCard key={plan.id} isPopular={isPopular} isCurrent={isCurrent}>
-        {isPopular && <PopularBadge>Most Popular</PopularBadge>}
+        {isPopular && <PopularBadge>Recommended</PopularBadge>}
         {isCurrent && <CurrentBadge>Current Plan</CurrentBadge>}
 
         <PlanName>{plan.name}</PlanName>
@@ -331,9 +331,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           ) : isCurrent ? (
             "Current Plan"
           ) : plan.price === 0 ? (
-            "Get Started"
+            "Free Plan"
           ) : (
-            "Upgrade"
+            "Upgrade to Pro"
           )}
         </PlanButton>
       </PlanCard>
@@ -369,16 +369,22 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         </CloseButton>
 
         <ModalHeader>
-          <ModalTitle>Choose Your Plan</ModalTitle>
+          <ModalTitle>Upgrade to Pro</ModalTitle>
           <ModalSubtitle>{getTriggerMessage()}</ModalSubtitle>
         </ModalHeader>
 
         {usageMetrics && (
           <UsageInfo>
-            <UsageTitle>Current Usage</UsageTitle>
+            <UsageTitle>Your Current Usage</UsageTitle>
             <UsageText>
               {usageMetrics.foldersCount} folders •{" "}
               {usageMetrics.totalChatsCount} total chats
+              {currentPlan?.priority === "free" && (
+                <span style={{ color: "#dc2626", fontWeight: "500" }}>
+                  {" "}
+                  • Free plan limits reached
+                </span>
+              )}
             </UsageText>
           </UsageInfo>
         )}

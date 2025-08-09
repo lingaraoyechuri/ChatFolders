@@ -191,7 +191,8 @@ const UpgradeButton = styled(DropdownItem)`
   margin-top: 8px;
 
   &:hover {
-    background-color: #2563eb;
+    background-color: #2563eb !important;
+    color: white !important;
   }
 `;
 

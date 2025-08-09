@@ -192,6 +192,8 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       const authStore = useAuthStore.getState();
       if (authStore.user) {
         cloudStorage.updateFolder(authStore.user.uid, folder);
+        // Also sync the updated folders list to cloud
+        get().syncToCloud();
       }
     }
   },
@@ -206,8 +208,14 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       const authStore = useAuthStore.getState();
       if (authStore.user) {
         cloudStorage.deleteFolder(authStore.user.uid, folderId);
+        // Also sync the updated folders list to cloud
+        get().syncToCloud();
       }
     }
+
+    // Update usage metrics after deletion
+    const subscriptionStore = useSubscriptionStore.getState();
+    subscriptionStore.updateUsageMetrics();
   },
 
   setSelectedFolder: (folder) => set({ selectedFolder: folder }),
@@ -310,6 +318,20 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       saveFoldersToStorage(updatedFolders);
 
       console.log(`Store: Saved updated folders to localStorage`);
+
+      // Sync to cloud if enabled
+      if (get().isCloudEnabled && get().isOnline) {
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+          cloudStorage.updateFolder(authStore.user.uid, updatedFolder);
+          // Also sync the updated folders list to cloud
+          get().syncToCloud();
+        }
+      }
+
+      // Update usage metrics after removing chat
+      const subscriptionStore = useSubscriptionStore.getState();
+      subscriptionStore.updateUsageMetrics();
     } else {
       console.log(`Store: Folder ${folderId} not found`);
     }
@@ -829,6 +851,19 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
       showFolderSelectionModal: false,
     });
     saveFoldersToStorage(updatedFolders);
+
+    // Sync to cloud if enabled
+    if (get().isCloudEnabled && get().isOnline) {
+      const authStore = useAuthStore.getState();
+      if (authStore.user) {
+        // Sync all updated folders to cloud
+        get().syncToCloud();
+      }
+    }
+
+    // Update usage metrics
+    const subscriptionStore = useSubscriptionStore.getState();
+    subscriptionStore.updateUsageMetrics();
   },
 
   setEditingFolderName: (name) => set({ editingFolderName: name }),
