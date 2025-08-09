@@ -772,10 +772,11 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated, user, initializeSubscription]);
 
-  // Handle subscription modal events
+  // Set up subscription modal event listener
   React.useEffect(() => {
     const handleShowSubscriptionModal = (event: CustomEvent) => {
-      setSubscriptionTrigger(event.detail.trigger || "upgrade");
+      const { trigger } = event.detail;
+      setSubscriptionTrigger(trigger || "feature-gated");
       setShowSubscriptionModal(true);
     };
 
@@ -925,6 +926,17 @@ const App: React.FC = () => {
   }, [showAddChatsModal, selectedFolder]);
 
   const handleOnQuestionClick = (question: string) => {
+    // Check if user has pro subscription for prompts navigation feature
+    const { checkFeatureAccess } = useSubscriptionStore.getState();
+    const hasProAccess = checkFeatureAccess("prioritySupport"); // Using prioritySupport as proxy for pro features
+
+    if (!hasProAccess) {
+      // Show subscription modal for free users
+      setSubscriptionTrigger("feature-gated");
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     const chatContainer = document.querySelector("main");
     if (!chatContainer) return;
 
