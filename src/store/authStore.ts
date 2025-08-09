@@ -107,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initializeAuth: () => {
     const unsubscribe = onAuthStateChanged(
       auth,
-      (firebaseUser: FirebaseUser | null) => {
+      async (firebaseUser: FirebaseUser | null) => {
         if (firebaseUser) {
           const user: User = {
             uid: firebaseUser.uid,
@@ -121,6 +121,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             error: null,
           });
+
+          // After successful authentication, enable cloud storage and sync
+          console.log("AuthStore: User authenticated, enabling cloud storage");
+          try {
+            const { useSidePanelStore } = await import("./sidePanelStore");
+            const sidePanelStore = useSidePanelStore.getState();
+
+            // Enable cloud storage
+            if (!sidePanelStore.isCloudEnabled) {
+              await sidePanelStore.enableCloudStorage();
+              console.log("AuthStore: Cloud storage enabled successfully");
+            } else {
+              // If already enabled, just sync from cloud
+              await sidePanelStore.syncFromCloud();
+              console.log("AuthStore: Synced from cloud successfully");
+            }
+          } catch (error) {
+            console.error(
+              "AuthStore: Error enabling cloud storage after auth:",
+              error
+            );
+          }
         } else {
           set({
             user: null,
@@ -128,6 +150,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             error: null,
           });
+
+          // When user logs out, disable cloud storage
+          console.log("AuthStore: User logged out, disabling cloud storage");
+          try {
+            const { useSidePanelStore } = await import("./sidePanelStore");
+            const sidePanelStore = useSidePanelStore.getState();
+            sidePanelStore.disableCloudStorage();
+          } catch (error) {
+            console.error(
+              "AuthStore: Error disabling cloud storage after logout:",
+              error
+            );
+          }
         }
       }
     );

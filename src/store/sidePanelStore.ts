@@ -26,6 +26,73 @@ const saveFoldersToStorage = (folders: Folder[]) => {
   }
 };
 
+// Merge cloud and local folders data
+const mergeFoldersData = (
+  cloudFolders: Folder[],
+  localFolders: Folder[]
+): Folder[] => {
+  console.log("MergeFoldersData: Starting merge process");
+
+  // Create a map of cloud folders by ID for efficient lookup
+  const cloudFoldersMap = new Map(
+    cloudFolders.map((folder) => [folder.id, folder])
+  );
+
+  // Create a map of local folders by ID for efficient lookup
+  const localFoldersMap = new Map(
+    localFolders.map((folder) => [folder.id, folder])
+  );
+
+  const mergedFolders: Folder[] = [];
+
+  // First, add all cloud folders (cloud data takes precedence)
+  cloudFolders.forEach((cloudFolder) => {
+    const localFolder = localFoldersMap.get(cloudFolder.id);
+
+    if (localFolder) {
+      // If folder exists in both cloud and local, merge conversations
+      const cloudChatIds = new Set(cloudFolder.conversations.map((c) => c.id));
+      const localOnlyChats = localFolder.conversations.filter(
+        (c) => !cloudChatIds.has(c.id)
+      );
+
+      const mergedFolder: Folder = {
+        ...cloudFolder, // Cloud data takes precedence for folder properties
+        conversations: [
+          ...cloudFolder.conversations,
+          ...localOnlyChats, // Add local chats that aren't in cloud
+        ],
+      };
+
+      mergedFolders.push(mergedFolder);
+      console.log(
+        `MergeFoldersData: Merged folder ${cloudFolder.name} - ${cloudFolder.conversations.length} cloud + ${localOnlyChats.length} local chats`
+      );
+    } else {
+      // Cloud folder doesn't exist locally, just add it
+      mergedFolders.push(cloudFolder);
+      console.log(
+        `MergeFoldersData: Added cloud-only folder ${cloudFolder.name}`
+      );
+    }
+  });
+
+  // Then, add local folders that don't exist in cloud
+  localFolders.forEach((localFolder) => {
+    if (!cloudFoldersMap.has(localFolder.id)) {
+      mergedFolders.push(localFolder);
+      console.log(
+        `MergeFoldersData: Added local-only folder ${localFolder.name}`
+      );
+    }
+  });
+
+  console.log(
+    `MergeFoldersData: Merge complete - ${mergedFolders.length} total folders`
+  );
+  return mergedFolders;
+};
+
 interface SidePanelState {
   folders: Folder[];
   selectedFolder: Folder | null;
@@ -888,13 +955,49 @@ export const useSidePanelStore = create<SidePanelState>((set, get) => ({
     set({ isCloudEnabled: true, syncStatus: "syncing" });
 
     try {
-      // Migrate existing local data to cloud
-      await get().migrateToCloud();
+      console.log("EnableCloudStorage: Starting cloud sync process");
+
+      // First, get existing cloud data
+      const cloudFolders = await cloudStorage.getUserFolders(
+        authStore.user!.uid
+      );
+      console.log(
+        "EnableCloudStorage: Found",
+        cloudFolders.length,
+        "folders in cloud"
+      );
+
+      // Get local data
+      const localFolders = get().folders;
+      console.log(
+        "EnableCloudStorage: Found",
+        localFolders.length,
+        "local folders"
+      );
+
+      // Merge cloud and local data (cloud data takes precedence if there are conflicts)
+      const mergedFolders = mergeFoldersData(cloudFolders, localFolders);
+      console.log(
+        "EnableCloudStorage: Merged to",
+        mergedFolders.length,
+        "folders"
+      );
+
+      // Update local state with merged data
+      set({ folders: mergedFolders });
+      saveFoldersToStorage(mergedFolders);
+
+      // Sync merged data back to cloud to ensure consistency
+      await cloudStorage.syncToCloud(authStore.user!.uid, mergedFolders);
+      await cloudStorage.updateLastSync(authStore.user!.uid);
 
       // Set up real-time listeners
       get().setupCloudListeners();
 
       set({ syncStatus: "synced", lastSync: new Date() });
+      console.log(
+        "EnableCloudStorage: Successfully enabled cloud storage and synced data"
+      );
     } catch (error) {
       console.error("Error enabling cloud storage:", error);
       set({ syncStatus: "error" });
