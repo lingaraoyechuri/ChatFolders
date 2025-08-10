@@ -337,22 +337,66 @@ const addDownloadButtonToAnswers = () => {
     const downloadButton = document.createElement("button");
     downloadButton.className =
       "download-answer-button text-token-text-secondary hover:bg-token-bg-secondary rounded-lg";
-    downloadButton.setAttribute("aria-label", "Download answer");
+    downloadButton.setAttribute("aria-label", "Download answer (Pro)");
     downloadButton.setAttribute("data-state", "closed");
 
+    // Check subscription status for styling
+    const { checkFeatureAccess } = useSubscriptionStore.getState();
+    const hasProAccess = checkFeatureAccess("prioritySupport");
+
     downloadButton.innerHTML = `
-      <span class="touch:w-10 flex h-8 w-8 items-center justify-center">
+      <span class="touch:w-10 flex h-8 w-8 items-center justify-center relative">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="icon">
           <path d="M10.0003 2.5C10.3676 2.5 10.6653 2.79777 10.6653 3.16504V12.9883L13.4717 10.1819C13.7314 9.92226 14.1525 9.92226 14.4122 10.1819C14.6718 10.4416 14.6718 10.8627 14.4122 11.1223L10.4717 15.0628C10.212 15.3224 9.79097 15.3224 9.53131 15.0628L5.59082 11.1223C5.33118 10.8627 5.33118 10.4416 5.59082 10.1819C5.85046 9.92226 6.27153 9.92226 6.53117 10.1819L9.33521 12.9883V3.16504C9.33521 2.79777 9.63298 2.5 10.0003 2.5Z"></path>
           <path d="M17.5 16.6654C17.5 17.0326 17.2022 17.3304 16.835 17.3304H3.16504C2.79777 17.3304 2.5 17.0326 2.5 16.6654C2.5 16.2981 2.79777 16.0003 3.16504 16.0003H16.835C17.2022 16.0003 17.5 16.2981 17.5 16.6654Z"></path>
         </svg>
+        ${
+          !hasProAccess
+            ? `
+        <span style="
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+          color: white;
+          font-size: 8px;
+          font-weight: 500;
+          padding: 1px 3px;
+          border-radius: 2px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          line-height: 1;
+        ">PRO</span>
+        `
+            : ""
+        }
       </span>
     `;
+
+    // Apply disabled styling for free users
+    if (!hasProAccess) {
+      downloadButton.style.opacity = "0.6";
+      downloadButton.style.cursor = "not-allowed";
+      downloadButton.title = "Download answer - Pro feature";
+    } else {
+      downloadButton.title = "Download answer";
+    }
 
     // Add click handler for download functionality
     downloadButton.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // Check if user has pro subscription for PDF export feature
+      if (!hasProAccess) {
+        // Show subscription modal for free users
+        window.dispatchEvent(
+          new CustomEvent("showSubscriptionModal", {
+            detail: { trigger: "feature-gated" },
+          })
+        );
+        return;
+      }
 
       // Debug: Log the edit button and its parent structure
 
