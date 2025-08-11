@@ -125,8 +125,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // After successful authentication, enable cloud storage and sync
           console.log("AuthStore: User authenticated, enabling cloud storage");
           try {
+            // Import the store and ensure it's properly initialized
             const { useSidePanelStore } = await import("./sidePanelStore");
+
+            // Get the current state to ensure the store is initialized
             const sidePanelStore = useSidePanelStore.getState();
+            console.log(
+              "AuthStore: SidePanelStore state loaded, current folders:",
+              sidePanelStore.folders.length
+            );
 
             // Enable cloud storage
             if (!sidePanelStore.isCloudEnabled) {

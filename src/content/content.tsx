@@ -812,6 +812,7 @@ const App: React.FC = () => {
   // Initialize subscription when authenticated
   React.useEffect(() => {
     if (isAuthenticated && user) {
+      console.log("Content: Initializing subscription");
       initializeSubscription();
     }
   }, [isAuthenticated, user, initializeSubscription]);
@@ -824,15 +825,27 @@ const App: React.FC = () => {
       setShowSubscriptionModal(true);
     };
 
+    const handleShowAuthModal = (event: CustomEvent) => {
+      setShowAuthModal(true);
+    };
+
     window.addEventListener(
       "showSubscriptionModal",
       handleShowSubscriptionModal as EventListener
+    );
+    window.addEventListener(
+      "showAuthModal",
+      handleShowAuthModal as EventListener
     );
 
     return () => {
       window.removeEventListener(
         "showSubscriptionModal",
         handleShowSubscriptionModal as EventListener
+      );
+      window.removeEventListener(
+        "showAuthModal",
+        handleShowAuthModal as EventListener
       );
     };
   }, []);

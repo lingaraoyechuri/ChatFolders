@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import { Folder } from "../../types/sidePanel";
 import { useSidePanelStore } from "../../store/sidePanelStore"; // Import the store
+import { useAuthStore } from "../../store/authStore";
+import { useSubscriptionStore } from "../../store/subscriptionStore";
 
 // Styled components
 const FolderContainer = styled.div`
@@ -473,9 +475,32 @@ export const NewFolderButtonComponent: React.FC<NewFolderButtonProps> = ({
   onClick,
   label = "New Folder",
 }) => {
-  const { setShowNewFolderModal } = useSidePanelStore(); // Get the action from the store
+  const { setShowNewFolderModal, folders } = useSidePanelStore(); // Get the action from the store
+  const { isAuthenticated } = useAuthStore();
+  const { checkUsageLimits } = useSubscriptionStore();
 
   const handleClick = () => {
+    // Check if user can create more folders (respects free plan limits)
+    const { canCreateFolder } = checkUsageLimits();
+    if (!canCreateFolder) {
+      if (!isAuthenticated) {
+        // Show login modal for unauthenticated users who have reached the limit
+        window.dispatchEvent(
+          new CustomEvent("showAuthModal", {
+            detail: { trigger: "limit-reached" },
+          })
+        );
+      } else {
+        // Show subscription modal for authenticated users who have reached their limit
+        window.dispatchEvent(
+          new CustomEvent("showSubscriptionModal", {
+            detail: { trigger: "limit-reached" },
+          })
+        );
+      }
+      return;
+    }
+
     setShowNewFolderModal(true); // Open the NewFolderForm
     onClick();
   };

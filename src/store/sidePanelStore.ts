@@ -4,12 +4,78 @@ import { useAuthStore } from "./authStore";
 import { useSubscriptionStore } from "./subscriptionStore";
 import { cloudStorage } from "../services/cloudStorage";
 
+// Global variable to track store creation
+let storeCreationCount = 0;
+let lastStoreCreationTime = 0;
+
 // Load initial state from localStorage
 const loadInitialState = () => {
   try {
     const savedFolders = localStorage.getItem("folders");
+    console.log("loadInitialState: Raw localStorage data:", savedFolders);
+    console.log(
+      "loadInitialState: Raw localStorage data length:",
+      savedFolders ? savedFolders.length : 0
+    );
+
+    const folders = savedFolders ? JSON.parse(savedFolders) : [];
+    console.log(
+      "loadInitialState: Parsed folders from localStorage:",
+      folders.length,
+      folders.map((f: any) => ({ id: f.id, name: f.name }))
+    );
+
+    // Safety check: If we're loading 0 folders but localStorage has data, try to parse it again
+    if (folders.length === 0 && savedFolders && savedFolders.trim() !== "") {
+      console.warn(
+        "loadInitialState: Parsed 0 folders but localStorage has data, attempting to parse again"
+      );
+      try {
+        const retryFolders = JSON.parse(savedFolders);
+        console.log(
+          "loadInitialState: Retry parse successful:",
+          retryFolders.length,
+          "folders"
+        );
+        return { folders: retryFolders };
+      } catch (retryError) {
+        console.error("loadInitialState: Retry parse failed:", retryError);
+      }
+    }
+
+    // Additional safety check: If we're loading fewer folders than expected, check if there's a parsing issue
+    if (folders.length === 1 && savedFolders && savedFolders.includes('"id"')) {
+      console.warn(
+        "loadInitialState: Only 1 folder loaded, but localStorage seems to have more data"
+      );
+      console.warn(
+        "loadInitialState: Checking if there's a JSON parsing issue..."
+      );
+
+      // Try to manually parse the JSON to see if there are multiple objects
+      try {
+        const manualParse = JSON.parse(savedFolders);
+        if (Array.isArray(manualParse) && manualParse.length > 1) {
+          console.warn(
+            "loadInitialState: Manual parse shows",
+            manualParse.length,
+            "folders, but initial parse showed 1"
+          );
+          console.warn(
+            "loadInitialState: This suggests a parsing issue, using manual parse result"
+          );
+          return { folders: manualParse };
+        }
+      } catch (manualError) {
+        console.error(
+          "loadInitialState: Manual parse also failed:",
+          manualError
+        );
+      }
+    }
+
     return {
-      folders: savedFolders ? JSON.parse(savedFolders) : [],
+      folders: folders,
     };
   } catch (error) {
     console.error("Error loading state from localStorage:", error);
@@ -20,7 +86,13 @@ const loadInitialState = () => {
 // Save folders to localStorage
 const saveFoldersToStorage = (folders: Folder[]) => {
   try {
+    console.log(
+      "saveFoldersToStorage: Saving folders to localStorage:",
+      folders.length,
+      folders.map((f) => ({ id: f.id, name: f.name }))
+    );
     localStorage.setItem("folders", JSON.stringify(folders));
+    console.log("saveFoldersToStorage: Successfully saved to localStorage");
   } catch (error) {
     console.error("Error saving folders to localStorage:", error);
   }
@@ -32,6 +104,32 @@ const mergeFoldersData = (
   localFolders: Folder[]
 ): Folder[] => {
   console.log("MergeFoldersData: Starting merge process");
+  console.log(
+    "MergeFoldersData: Cloud folders:",
+    cloudFolders.length,
+    cloudFolders.map((f) => ({ id: f.id, name: f.name }))
+  );
+  console.log(
+    "MergeFoldersData: Local folders:",
+    localFolders.length,
+    localFolders.map((f) => ({ id: f.id, name: f.name }))
+  );
+
+  // If no cloud folders, return local folders (preserve local data)
+  if (cloudFolders.length === 0) {
+    console.log(
+      "MergeFoldersData: No cloud folders found, preserving local folders"
+    );
+    return localFolders;
+  }
+
+  // If no local folders, return cloud folders
+  if (localFolders.length === 0) {
+    console.log(
+      "MergeFoldersData: No local folders found, using cloud folders"
+    );
+    return cloudFolders;
+  }
 
   // Create a map of cloud folders by ID for efficient lookup
   const cloudFoldersMap = new Map(
@@ -88,7 +186,8 @@ const mergeFoldersData = (
   });
 
   console.log(
-    `MergeFoldersData: Merge complete - ${mergedFolders.length} total folders`
+    `MergeFoldersData: Merge complete - ${mergedFolders.length} total folders:`,
+    mergedFolders.map((f) => ({ id: f.id, name: f.name }))
   );
   return mergedFolders;
 };
@@ -178,909 +277,1061 @@ interface SidePanelState {
   setIsOnline: (online: boolean) => void;
 }
 
-export const useSidePanelStore = create<SidePanelState>((set, get) => ({
-  ...loadInitialState(),
-  selectedFolder: null,
-  isOpen: false,
-  newFolderName: "",
-  selectedEmoji: "📁",
-  editingFolder: null,
-  showNewFolderModal: false,
-  showFolderSelectionModal: false,
-  showAddChatsModal: false,
-  selectedChats: [],
-  searchQuery: "",
-  editingFolderId: null,
-  expandedFolders: {},
-  activeDropdown: null,
-  selectedChatForFolders: null,
-  editingFolderName: "",
-  editingFolderEmoji: "📁",
+export const useSidePanelStore = create<SidePanelState>((set, get) => {
+  const creationTime = new Date().toISOString();
+  const currentTime = Date.now();
+  storeCreationCount++;
 
-  // Cloud storage state
-  isOnline: navigator.onLine,
-  syncStatus: "offline",
-  lastSync: null,
-  isCloudEnabled: false,
+  console.log("useSidePanelStore: Creating store instance at:", creationTime);
+  console.log("useSidePanelStore: Store creation count:", storeCreationCount);
+  console.log(
+    "useSidePanelStore: Time since last creation:",
+    currentTime - lastStoreCreationTime,
+    "ms"
+  );
 
-  setFolders: (folders) => {
-    set({ folders });
-    saveFoldersToStorage(folders);
+  lastStoreCreationTime = currentTime;
 
-    // Sync to cloud if enabled
-    if (get().isCloudEnabled && get().isOnline) {
-      const authStore = useAuthStore.getState();
-      if (authStore.user) {
-        get().syncToCloud();
-      }
-    }
-  },
+  console.log(
+    "useSidePanelStore: localStorage content at creation:",
+    localStorage.getItem("folders")
+  );
 
-  addFolder: (folder) => {
-    // Check subscription limits
-    const subscriptionStore = useSubscriptionStore.getState();
-    const { canCreateFolder } = subscriptionStore.checkUsageLimits();
+  const initialState = loadInitialState();
+  console.log(
+    "useSidePanelStore: Initial state loaded:",
+    initialState.folders.length,
+    "folders:",
+    initialState.folders.map((f: any) => ({ id: f.id, name: f.name }))
+  );
 
-    if (!canCreateFolder) {
-      // Emit event to show subscription modal
-      window.dispatchEvent(
-        new CustomEvent("showSubscriptionModal", {
-          detail: { trigger: "limit-reached" },
-        })
+  // Safety check: If we're creating a new store instance but there's already data in localStorage,
+  // make sure we preserve it
+  if (initialState.folders.length === 0) {
+    const existingData = localStorage.getItem("folders");
+    if (existingData && existingData.trim() !== "") {
+      console.warn(
+        "useSidePanelStore: Store created with 0 folders but localStorage has data, attempting to load"
       );
-      return;
-    }
-
-    const newFolders = [...get().folders, folder];
-    set({ folders: newFolders });
-    saveFoldersToStorage(newFolders);
-
-    // Sync to cloud if enabled
-    if (get().isCloudEnabled && get().isOnline) {
-      const authStore = useAuthStore.getState();
-      if (authStore.user) {
-        cloudStorage.saveFolder(authStore.user.uid, folder);
+      try {
+        const existingFolders = JSON.parse(existingData);
+        console.log(
+          "useSidePanelStore: Loaded existing folders from localStorage:",
+          existingFolders.length
+        );
+        initialState.folders = existingFolders;
+      } catch (error) {
+        console.error(
+          "useSidePanelStore: Failed to load existing folders:",
+          error
+        );
       }
     }
+  }
 
-    // Update usage metrics
-    subscriptionStore.updateUsageMetrics();
-  },
+  console.log(
+    "useSidePanelStore: Final initial state:",
+    initialState.folders.length,
+    "folders"
+  );
 
-  updateFolder: (folder) => {
-    const newFolders = get().folders.map((f) =>
-      f.id === folder.id ? folder : f
-    );
-    set({ folders: newFolders });
-    saveFoldersToStorage(newFolders);
-
-    // Sync to cloud if enabled
-    if (get().isCloudEnabled && get().isOnline) {
-      const authStore = useAuthStore.getState();
-      if (authStore.user) {
-        cloudStorage.updateFolder(authStore.user.uid, folder);
-        // Also sync the updated folders list to cloud
-        get().syncToCloud();
-      }
-    }
-  },
-
-  deleteFolder: (folderId) => {
-    const newFolders = get().folders.filter((f) => f.id !== folderId);
-    set({ folders: newFolders });
-    saveFoldersToStorage(newFolders);
-
-    // Sync to cloud if enabled
-    if (get().isCloudEnabled && get().isOnline) {
-      const authStore = useAuthStore.getState();
-      if (authStore.user) {
-        cloudStorage.deleteFolder(authStore.user.uid, folderId);
-        // Also sync the updated folders list to cloud
-        get().syncToCloud();
-      }
-    }
-
-    // Update usage metrics after deletion
-    const subscriptionStore = useSubscriptionStore.getState();
-    subscriptionStore.updateUsageMetrics();
-  },
-
-  setSelectedFolder: (folder) => set({ selectedFolder: folder }),
-  setIsOpen: (isOpen) => set({ isOpen }),
-  setNewFolderName: (name) => set({ newFolderName: name }),
-  setSelectedEmoji: (emoji) => set({ selectedEmoji: emoji }),
-  setEditingFolder: (folder) => set({ editingFolder: folder }),
-  setShowNewFolderModal: (show) => set({ showNewFolderModal: show }),
-  setShowFolderSelectionModal: (show) =>
-    set({ showFolderSelectionModal: show }),
-  setShowAddChatsModal: (show) => set({ showAddChatsModal: show }),
-  setSelectedChats: (chats) => set({ selectedChats: chats }),
-  setSearchQuery: (query) => set({ searchQuery: query }),
-  setSelectedChatForFolders: (chat) => set({ selectedChatForFolders: chat }),
-
-  // New actions for FolderItem
-  setEditingFolderId: (id) => set({ editingFolderId: id }),
-  toggleFolderExpansion: (folderId) =>
-    set((state) => ({
-      expandedFolders: {
-        ...state.expandedFolders,
-        [folderId]: !state.expandedFolders[folderId],
-      },
-    })),
-  handleFolderOptions: (folderId, event) => {
-    event.stopPropagation();
-    set((state) => ({
-      activeDropdown: state.activeDropdown === folderId ? null : folderId,
-    }));
-  },
-  handleEditFolder: (folder) => {
-    set({
-      editingFolder: folder,
-      editingFolderId: folder.id,
-      newFolderName: folder.name,
-      selectedEmoji: folder.emoji,
+  // Log the current authentication state
+  try {
+    const authStore = useAuthStore.getState();
+    console.log("useSidePanelStore: Current auth state:", {
+      isAuthenticated: authStore.isAuthenticated,
+      user: authStore.user
+        ? { uid: authStore.user.uid, email: authStore.user.email }
+        : null,
     });
-  },
-  updateFolderName: (folderId: string, newName: string) => {
-    const folder = get().folders.find((f) => f.id === folderId);
-    if (folder && newName.trim() !== "" && newName.trim() !== folder.name) {
-      const updatedFolder: Folder = {
-        ...folder,
-        name: newName.trim(),
-      };
-      get().updateFolder(updatedFolder);
-    }
-  },
-  handleDeleteFolder: (folderId) => {
-    get().deleteFolder(folderId);
-    set({ activeDropdown: null });
-  },
-  openAddChatsModal: (folderId, event) => {
-    console.log(`Store: openAddChatsModal called with folderId = ${folderId}`);
-    // Safely call stopPropagation if it exists
-    if (event && typeof event.stopPropagation === "function") {
-      event.stopPropagation();
-    }
-    const folder = get().folders.find((f) => f.id === folderId);
-    if (folder) {
-      console.log(`Store: Found folder ${folder.name} with ID ${folder.id}`);
-      set({ selectedFolder: folder, showAddChatsModal: true });
-      console.log(`Store: Set selectedFolder and showAddChatsModal = true`);
-    } else {
-      console.error(`Store: Folder with ID ${folderId} not found`);
-    }
-  },
-  removeChatFromFolder: (folderId, chatId, event?: React.MouseEvent) => {
-    // Safely call stopPropagation if it exists
-    if (event && typeof event.stopPropagation === "function") {
-      event.stopPropagation();
-    }
+  } catch (error) {
+    console.log(
+      "useSidePanelStore: Could not get auth state during store creation:",
+      error
+    );
+  }
 
-    console.log(`Store: Removing chat ${chatId} from folder ${folderId}`);
+  return {
+    ...initialState,
+    selectedFolder: null,
+    isOpen: false,
+    newFolderName: "",
+    selectedEmoji: "📁",
+    editingFolder: null,
+    showNewFolderModal: false,
+    showFolderSelectionModal: false,
+    showAddChatsModal: false,
+    selectedChats: [],
+    searchQuery: "",
+    editingFolderId: null,
+    expandedFolders: {},
+    activeDropdown: null,
+    selectedChatForFolders: null,
+    editingFolderName: "",
+    editingFolderEmoji: "📁",
 
-    const folder = get().folders.find((f) => f.id === folderId);
-    if (folder) {
+    // Cloud storage state
+    isOnline: navigator.onLine,
+    syncStatus: "offline",
+    lastSync: null,
+    isCloudEnabled: false,
+
+    setFolders: (folders) => {
       console.log(
-        `Store: Found folder ${folder.name} with ${folder.conversations.length} conversations`
+        "setFolders: Called with",
+        folders.length,
+        "folders:",
+        folders.map((f) => ({ id: f.id, name: f.name }))
       );
 
-      const updatedFolder: Folder = {
-        ...folder,
-        conversations: folder.conversations.filter(
-          (conv) => conv.id !== chatId
-        ),
-      };
-
-      console.log(
-        `Store: Updated folder now has ${updatedFolder.conversations.length} conversations`
-      );
-
-      // Update the folder in the store
-      get().updateFolder(updatedFolder);
-
-      // Save to localStorage
-      const updatedFolders = get().folders.map((f) =>
-        f.id === folderId ? updatedFolder : f
-      );
-      saveFoldersToStorage(updatedFolders);
-
-      console.log(`Store: Saved updated folders to localStorage`);
+      set({ folders });
+      saveFoldersToStorage(folders);
 
       // Sync to cloud if enabled
       if (get().isCloudEnabled && get().isOnline) {
         const authStore = useAuthStore.getState();
         if (authStore.user) {
-          cloudStorage.updateFolder(authStore.user.uid, updatedFolder);
+          get().syncToCloud();
+        }
+      }
+    },
+
+    addFolder: (folder) => {
+      // Check subscription limits
+      const subscriptionStore = useSubscriptionStore.getState();
+      const { canCreateFolder } = subscriptionStore.checkUsageLimits();
+
+      if (!canCreateFolder) {
+        // Emit event to show subscription modal
+        window.dispatchEvent(
+          new CustomEvent("showSubscriptionModal", {
+            detail: { trigger: "limit-reached" },
+          })
+        );
+        return;
+      }
+
+      const newFolders = [...get().folders, folder];
+      set({ folders: newFolders });
+      saveFoldersToStorage(newFolders);
+
+      // Sync to cloud if enabled
+      if (get().isCloudEnabled && get().isOnline) {
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+          cloudStorage.saveFolder(authStore.user.uid, folder);
+        }
+      }
+
+      // Update usage metrics
+      subscriptionStore.updateUsageMetrics();
+    },
+
+    updateFolder: (folder) => {
+      const newFolders = get().folders.map((f) =>
+        f.id === folder.id ? folder : f
+      );
+      set({ folders: newFolders });
+      saveFoldersToStorage(newFolders);
+
+      // Sync to cloud if enabled
+      if (get().isCloudEnabled && get().isOnline) {
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+          cloudStorage.updateFolder(authStore.user.uid, folder);
+          // Also sync the updated folders list to cloud
+          get().syncToCloud();
+        }
+      }
+    },
+
+    deleteFolder: (folderId) => {
+      const newFolders = get().folders.filter((f) => f.id !== folderId);
+      set({ folders: newFolders });
+      saveFoldersToStorage(newFolders);
+
+      // Sync to cloud if enabled
+      if (get().isCloudEnabled && get().isOnline) {
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+          cloudStorage.deleteFolder(authStore.user.uid, folderId);
           // Also sync the updated folders list to cloud
           get().syncToCloud();
         }
       }
 
-      // Update usage metrics after removing chat
+      // Update usage metrics after deletion
       const subscriptionStore = useSubscriptionStore.getState();
       subscriptionStore.updateUsageMetrics();
-    } else {
-      console.log(`Store: Folder ${folderId} not found`);
-    }
-  },
-  getFolderConversations: (folderId) => {
-    const folder = get().folders.find((f) => f.id === folderId);
-    return folder ? folder.conversations : [];
-  },
+    },
 
-  closeAddChatsModal: () => set({ showAddChatsModal: false }),
-  toggleChatSelection: (chatId) =>
-    set((state) => ({
-      selectedChats: state.selectedChats.includes(chatId)
-        ? state.selectedChats.filter((id) => id !== chatId)
-        : [...state.selectedChats, chatId],
-    })),
-  getAvailableChats: () => {
-    const { folders, selectedFolder } = get();
-    console.log("getAvailableChats: Function called");
-    console.log("getAvailableChats: selectedFolder =", selectedFolder);
-    console.log("getAvailableChats: folders count =", folders.length);
+    setSelectedFolder: (folder) => set({ selectedFolder: folder }),
+    setIsOpen: (isOpen) => set({ isOpen }),
+    setNewFolderName: (name) => set({ newFolderName: name }),
+    setSelectedEmoji: (emoji) => set({ selectedEmoji: emoji }),
+    setEditingFolder: (folder) => set({ editingFolder: folder }),
+    setShowNewFolderModal: (show) => set({ showNewFolderModal: show }),
+    setShowFolderSelectionModal: (show) =>
+      set({ showFolderSelectionModal: show }),
+    setShowAddChatsModal: (show) => set({ showAddChatsModal: show }),
+    setSelectedChats: (chats) => set({ selectedChats: chats }),
+    setSearchQuery: (query) => set({ searchQuery: query }),
+    setSelectedChatForFolders: (chat) => set({ selectedChatForFolders: chat }),
 
-    if (!selectedFolder) {
+    // New actions for FolderItem
+    setEditingFolderId: (id) => set({ editingFolderId: id }),
+    toggleFolderExpansion: (folderId) =>
+      set((state) => ({
+        expandedFolders: {
+          ...state.expandedFolders,
+          [folderId]: !state.expandedFolders[folderId],
+        },
+      })),
+    handleFolderOptions: (folderId, event) => {
+      event.stopPropagation();
+      set((state) => ({
+        activeDropdown: state.activeDropdown === folderId ? null : folderId,
+      }));
+    },
+    handleEditFolder: (folder) => {
+      set({
+        editingFolder: folder,
+        editingFolderId: folder.id,
+        newFolderName: folder.name,
+        selectedEmoji: folder.emoji,
+      });
+    },
+    updateFolderName: (folderId: string, newName: string) => {
+      const folder = get().folders.find((f) => f.id === folderId);
+      if (folder && newName.trim() !== "" && newName.trim() !== folder.name) {
+        const updatedFolder: Folder = {
+          ...folder,
+          name: newName.trim(),
+        };
+        get().updateFolder(updatedFolder);
+      }
+    },
+    handleDeleteFolder: (folderId) => {
+      get().deleteFolder(folderId);
+      set({ activeDropdown: null });
+    },
+    openAddChatsModal: (folderId, event) => {
       console.log(
-        "getAvailableChats: No selectedFolder, returning empty array"
+        `Store: openAddChatsModal called with folderId = ${folderId}`
       );
-      return Promise.resolve([]);
-    }
+      // Safely call stopPropagation if it exists
+      if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+      }
+      const folder = get().folders.find((f) => f.id === folderId);
+      if (folder) {
+        console.log(`Store: Found folder ${folder.name} with ID ${folder.id}`);
+        set({ selectedFolder: folder, showAddChatsModal: true });
+        console.log(`Store: Set selectedFolder and showAddChatsModal = true`);
+      } else {
+        console.error(`Store: Folder with ID ${folderId} not found`);
+      }
+    },
+    removeChatFromFolder: (folderId, chatId, event?: React.MouseEvent) => {
+      // Safely call stopPropagation if it exists
+      if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+      }
 
-    // Get all chat IDs that are already in the CURRENT folder (not all folders)
-    const existingChatIds = new Set(
-      selectedFolder.conversations.map((conv) => conv.id)
-    );
-    console.log(
-      "getAvailableChats: Existing chat IDs in current folder:",
-      Array.from(existingChatIds)
-    );
+      console.log(`Store: Removing chat ${chatId} from folder ${folderId}`);
 
-    console.log("getAvailableChats: Starting to load all chats...");
-
-    // Function to load all chats by scrolling
-    const loadAllChats = async (): Promise<Element[]> => {
-      return new Promise((resolve) => {
-        // Find the chat list container
-        const chatListContainer =
-          document.querySelector('nav[class*="flex-col"]') ||
-          document.querySelector('[role="navigation"]') ||
-          document.querySelector('[class*="sidebar"]');
-
+      const folder = get().folders.find((f) => f.id === folderId);
+      if (folder) {
         console.log(
-          "getAvailableChats: Chat list container found:",
-          !!chatListContainer
+          `Store: Found folder ${folder.name} with ${folder.conversations.length} conversations`
         );
 
-        if (!chatListContainer) {
-          console.log("No chat list container found");
-          resolve([]);
-          return;
+        const updatedFolder: Folder = {
+          ...folder,
+          conversations: folder.conversations.filter(
+            (conv) => conv.id !== chatId
+          ),
+        };
+
+        console.log(
+          `Store: Updated folder now has ${updatedFolder.conversations.length} conversations`
+        );
+
+        // Update the folder in the store
+        get().updateFolder(updatedFolder);
+
+        // Save to localStorage
+        const updatedFolders = get().folders.map((f) =>
+          f.id === folderId ? updatedFolder : f
+        );
+        saveFoldersToStorage(updatedFolders);
+
+        console.log(`Store: Saved updated folders to localStorage`);
+
+        // Sync to cloud if enabled
+        if (get().isCloudEnabled && get().isOnline) {
+          const authStore = useAuthStore.getState();
+          if (authStore.user) {
+            cloudStorage.updateFolder(authStore.user.uid, updatedFolder);
+            // Also sync the updated folders list to cloud
+            get().syncToCloud();
+          }
         }
 
-        console.log("Starting to load all chats by scrolling...");
+        // Update usage metrics after removing chat
+        const subscriptionStore = useSubscriptionStore.getState();
+        subscriptionStore.updateUsageMetrics();
+      } else {
+        console.log(`Store: Folder ${folderId} not found`);
+      }
+    },
+    getFolderConversations: (folderId) => {
+      const folder = get().folders.find((f) => f.id === folderId);
+      return folder ? folder.conversations : [];
+    },
 
-        let previousHeight = 0;
-        let scrollAttempts = 0;
-        const maxScrollAttempts = 50; // Prevent infinite scrolling
-        const scrollInterval = 100; // Scroll every 100ms
+    closeAddChatsModal: () => set({ showAddChatsModal: false }),
+    toggleChatSelection: (chatId) =>
+      set((state) => ({
+        selectedChats: state.selectedChats.includes(chatId)
+          ? state.selectedChats.filter((id) => id !== chatId)
+          : [...state.selectedChats, chatId],
+      })),
+    getAvailableChats: () => {
+      const { folders, selectedFolder } = get();
+      console.log("getAvailableChats: Function called");
+      console.log("getAvailableChats: selectedFolder =", selectedFolder);
+      console.log("getAvailableChats: folders count =", folders.length);
 
-        const scrollToLoad = () => {
-          // Scroll to the bottom of the chat list
-          chatListContainer.scrollTop = chatListContainer.scrollHeight;
+      if (!selectedFolder) {
+        console.log(
+          "getAvailableChats: No selectedFolder, returning empty array"
+        );
+        return Promise.resolve([]);
+      }
 
-          // Check if we've reached the bottom (no more content to load)
-          const currentHeight = chatListContainer.scrollHeight;
+      // Get all chat IDs that are already in the CURRENT folder (not all folders)
+      const existingChatIds = new Set(
+        selectedFolder.conversations.map((conv) => conv.id)
+      );
+      console.log(
+        "getAvailableChats: Existing chat IDs in current folder:",
+        Array.from(existingChatIds)
+      );
 
-          if (
-            currentHeight === previousHeight ||
-            scrollAttempts >= maxScrollAttempts
-          ) {
-            console.log(
-              `Finished loading chats. Height: ${currentHeight}, Attempts: ${scrollAttempts}`
-            );
+      console.log("getAvailableChats: Starting to load all chats...");
 
-            // Wait a bit more for any final loading to complete
-            setTimeout(() => {
-              // Now collect all the chat links
-              const allChatLinks = collectAllChatLinks();
-              console.log(
-                "getAvailableChats: Collected chat links after scrolling:",
-                allChatLinks.length
-              );
-              resolve(allChatLinks);
-            }, 500);
+      // Function to load all chats by scrolling
+      const loadAllChats = async (): Promise<Element[]> => {
+        return new Promise((resolve) => {
+          // Find the chat list container
+          const chatListContainer =
+            document.querySelector('nav[class*="flex-col"]') ||
+            document.querySelector('[role="navigation"]') ||
+            document.querySelector('[class*="sidebar"]');
 
+          console.log(
+            "getAvailableChats: Chat list container found:",
+            !!chatListContainer
+          );
+
+          if (!chatListContainer) {
+            console.log("No chat list container found");
+            resolve([]);
             return;
           }
 
-          previousHeight = currentHeight;
-          scrollAttempts++;
+          console.log("Starting to load all chats by scrolling...");
 
-          // Continue scrolling
-          setTimeout(scrollToLoad, scrollInterval);
-        };
+          let previousHeight = 0;
+          let scrollAttempts = 0;
+          const maxScrollAttempts = 50; // Prevent infinite scrolling
+          const scrollInterval = 100; // Scroll every 100ms
 
-        // Start the scrolling process
-        scrollToLoad();
-      });
-    };
+          const scrollToLoad = () => {
+            // Scroll to the bottom of the chat list
+            chatListContainer.scrollTop = chatListContainer.scrollHeight;
 
-    // Function to collect all chat links after scrolling
-    const collectAllChatLinks = (): Element[] => {
-      console.log("getAvailableChats: collectAllChatLinks called");
+            // Check if we've reached the bottom (no more content to load)
+            const currentHeight = chatListContainer.scrollHeight;
 
-      // More comprehensive selectors to find chat links
-      const chatSelectors = [
-        'a[href^="/c/"]', // Standard chat links
-        'a[href*="/c/"]', // Any link containing /c/
-        '[data-testid*="chat"] a[href*="/c/"]', // Chat links in test containers
-        'nav a[href*="/c/"]', // Chat links in navigation
-        '.group a[href*="/c/"]', // Chat links in group containers
-        'a[class*="group"]', // Links with group class
-        "a[data-fill]", // Links with data-fill attribute (like in your snippet)
-        'a[class*="__menu-item"]', // Menu item links
-        'a[class*="hoverable"]', // Hoverable links
-        'a[class*="truncate"]', // Links with truncate class
-        'a[class*="flex"]', // Links with flex class
-        'a[class*="min-w-0"]', // Links with min-w-0 class
-        'a[class*="grow"]', // Links with grow class
-        'a[class*="items-center"]', // Links with items-center class
-        'a[class*="gap-2.5"]', // Links with gap-2.5 class
-      ];
+            if (
+              currentHeight === previousHeight ||
+              scrollAttempts >= maxScrollAttempts
+            ) {
+              console.log(
+                `Finished loading chats. Height: ${currentHeight}, Attempts: ${scrollAttempts}`
+              );
 
-      let allChatLinks: Element[] = [];
+              // Wait a bit more for any final loading to complete
+              setTimeout(() => {
+                // Now collect all the chat links
+                const allChatLinks = collectAllChatLinks();
+                console.log(
+                  "getAvailableChats: Collected chat links after scrolling:",
+                  allChatLinks.length
+                );
+                resolve(allChatLinks);
+              }, 500);
 
-      // Collect all chat links from different selectors
-      chatSelectors.forEach((selector) => {
-        try {
-          const links = Array.from(document.querySelectorAll(selector));
-          console.log(
-            `getAvailableChats: Selector "${selector}" found ${links.length} links`
-          );
-          allChatLinks = [...allChatLinks, ...links];
-        } catch (error) {
-          console.warn(`Failed to query selector: ${selector}`, error);
-        }
-      });
+              return;
+            }
 
-      // Also try to find all links in the navigation area
-      const navElements = document.querySelectorAll(
-        'nav, [role="navigation"], [class*="sidebar"], [class*="nav"]'
-      );
-      console.log("getAvailableChats: Found nav elements:", navElements.length);
+            previousHeight = currentHeight;
+            scrollAttempts++;
 
-      navElements.forEach((nav) => {
-        try {
-          const navLinks = Array.from(nav.querySelectorAll('a[href*="/c/"]'));
-          console.log(
-            `getAvailableChats: Nav element found ${navLinks.length} chat links`
-          );
-          allChatLinks = [...allChatLinks, ...navLinks];
-        } catch (error) {
-          console.warn(`Failed to query nav element:`, error);
-        }
-      });
+            // Continue scrolling
+            setTimeout(scrollToLoad, scrollInterval);
+          };
 
-      // Remove duplicates based on href
-      const uniqueLinks = allChatLinks.filter((link, index, self) => {
-        const href = link.getAttribute("href");
-        return (
-          href &&
-          self.findIndex((l) => l.getAttribute("href") === href) === index
+          // Start the scrolling process
+          scrollToLoad();
+        });
+      };
+
+      // Function to collect all chat links after scrolling
+      const collectAllChatLinks = (): Element[] => {
+        console.log("getAvailableChats: collectAllChatLinks called");
+
+        // More comprehensive selectors to find chat links
+        const chatSelectors = [
+          'a[href^="/c/"]', // Standard chat links
+          'a[href*="/c/"]', // Any link containing /c/
+          '[data-testid*="chat"] a[href*="/c/"]', // Chat links in test containers
+          'nav a[href*="/c/"]', // Chat links in navigation
+          '.group a[href*="/c/"]', // Chat links in group containers
+          'a[class*="group"]', // Links with group class
+          "a[data-fill]", // Links with data-fill attribute (like in your snippet)
+          'a[class*="__menu-item"]', // Menu item links
+          'a[class*="hoverable"]', // Hoverable links
+          'a[class*="truncate"]', // Links with truncate class
+          'a[class*="flex"]', // Links with flex class
+          'a[class*="min-w-0"]', // Links with min-w-0 class
+          'a[class*="grow"]', // Links with grow class
+          'a[class*="items-center"]', // Links with items-center class
+          'a[class*="gap-2.5"]', // Links with gap-2.5 class
+        ];
+
+        let allChatLinks: Element[] = [];
+
+        // Collect all chat links from different selectors
+        chatSelectors.forEach((selector) => {
+          try {
+            const links = Array.from(document.querySelectorAll(selector));
+            console.log(
+              `getAvailableChats: Selector "${selector}" found ${links.length} links`
+            );
+            allChatLinks = [...allChatLinks, ...links];
+          } catch (error) {
+            console.warn(`Failed to query selector: ${selector}`, error);
+          }
+        });
+
+        // Also try to find all links in the navigation area
+        const navElements = document.querySelectorAll(
+          'nav, [role="navigation"], [class*="sidebar"], [class*="nav"]'
         );
-      });
-
-      console.log(
-        `Found ${uniqueLinks.length} unique chat links in DOM after scrolling`
-      );
-
-      return uniqueLinks;
-    };
-
-    // Use the async function to load all chats
-    return new Promise<Conversation[]>((resolve) => {
-      // Add a timeout to prevent infinite waiting
-      const timeout = setTimeout(() => {
         console.log(
-          "getAvailableChats: Timeout reached, using fallback method"
+          "getAvailableChats: Found nav elements:",
+          navElements.length
         );
-        const fallbackLinks = collectAllChatLinks();
-        const fallbackChats = processChatLinks(fallbackLinks);
-        resolve(fallbackChats);
-      }, 15000); // 15 second timeout
 
-      loadAllChats()
-        .then((uniqueLinks) => {
-          clearTimeout(timeout);
-          const availableChats = processChatLinks(uniqueLinks);
-          console.log(
-            `Available chats for folder "${selectedFolder.name}":`,
-            availableChats.length
+        navElements.forEach((nav) => {
+          try {
+            const navLinks = Array.from(nav.querySelectorAll('a[href*="/c/"]'));
+            console.log(
+              `getAvailableChats: Nav element found ${navLinks.length} chat links`
+            );
+            allChatLinks = [...allChatLinks, ...navLinks];
+          } catch (error) {
+            console.warn(`Failed to query nav element:`, error);
+          }
+        });
+
+        // Remove duplicates based on href
+        const uniqueLinks = allChatLinks.filter((link, index, self) => {
+          const href = link.getAttribute("href");
+          return (
+            href &&
+            self.findIndex((l) => l.getAttribute("href") === href) === index
           );
-          resolve(availableChats);
-        })
-        .catch((error) => {
-          clearTimeout(timeout);
-          console.error(
-            "getAvailableChats: Error during scrolling, using fallback:",
-            error
+        });
+
+        console.log(
+          `Found ${uniqueLinks.length} unique chat links in DOM after scrolling`
+        );
+
+        return uniqueLinks;
+      };
+
+      // Use the async function to load all chats
+      return new Promise<Conversation[]>((resolve) => {
+        // Add a timeout to prevent infinite waiting
+        const timeout = setTimeout(() => {
+          console.log(
+            "getAvailableChats: Timeout reached, using fallback method"
           );
           const fallbackLinks = collectAllChatLinks();
           const fallbackChats = processChatLinks(fallbackLinks);
           resolve(fallbackChats);
-        });
-    });
+        }, 15000); // 15 second timeout
 
-    // Helper function to process chat links
-    function processChatLinks(uniqueLinks: Element[]): Conversation[] {
-      console.log(
-        "getAvailableChats: processChatLinks called with",
-        uniqueLinks.length,
-        "links"
-      );
-
-      const processedChats = uniqueLinks
-        .map((link) => {
-          const href = link.getAttribute("href");
-          if (!href) {
-            console.log("getAvailableChats: Link has no href, skipping");
-            return null;
-          }
-
-          // Extract chat ID from various URL patterns
-          const chatIdMatch = href.match(/\/c\/([^\/\?]+)/);
-          if (!chatIdMatch) {
+        loadAllChats()
+          .then((uniqueLinks) => {
+            clearTimeout(timeout);
+            const availableChats = processChatLinks(uniqueLinks);
             console.log(
-              "getAvailableChats: Link href doesn't match chat pattern:",
-              href
+              `Available chats for folder "${selectedFolder.name}":`,
+              availableChats.length
             );
-            return null;
-          }
-
-          const chatId = chatIdMatch[1];
-          if (!chatId) {
-            console.log(
-              "getAvailableChats: No chat ID extracted from href:",
-              href
+            resolve(availableChats);
+          })
+          .catch((error) => {
+            clearTimeout(timeout);
+            console.error(
+              "getAvailableChats: Error during scrolling, using fallback:",
+              error
             );
-            return null;
-          }
+            const fallbackLinks = collectAllChatLinks();
+            const fallbackChats = processChatLinks(fallbackLinks);
+            resolve(fallbackChats);
+          });
+      });
 
-          if (existingChatIds.has(chatId)) {
-            console.log(
-              "getAvailableChats: Chat ID already in current folder, skipping:",
-              chatId
-            );
-            return null;
-          }
+      // Helper function to process chat links
+      function processChatLinks(uniqueLinks: Element[]): Conversation[] {
+        console.log(
+          "getAvailableChats: processChatLinks called with",
+          uniqueLinks.length,
+          "links"
+        );
 
-          // Try to get the title from multiple sources
-          let title = link.textContent?.trim();
+        const processedChats = uniqueLinks
+          .map((link) => {
+            const href = link.getAttribute("href");
+            if (!href) {
+              console.log("getAvailableChats: Link has no href, skipping");
+              return null;
+            }
 
-          // If no text content, try to find title in child elements
-          if (!title || title === chatId) {
-            // Look for title in various child elements
-            const titleSelectors = [
-              "[title]",
-              "[data-title]",
-              ".title",
-              ".chat-title",
-              ".truncate",
-              "span",
-              "div",
-              "[class*='truncate']",
-              "[class*='title']",
-            ];
+            // Extract chat ID from various URL patterns
+            const chatIdMatch = href.match(/\/c\/([^\/\?]+)/);
+            if (!chatIdMatch) {
+              console.log(
+                "getAvailableChats: Link href doesn't match chat pattern:",
+                href
+              );
+              return null;
+            }
 
-            for (const selector of titleSelectors) {
-              const titleElement = link.querySelector(selector);
-              if (titleElement) {
-                const elementTitle =
-                  titleElement.getAttribute("title") ||
-                  titleElement.getAttribute("data-title") ||
-                  titleElement.textContent?.trim();
+            const chatId = chatIdMatch[1];
+            if (!chatId) {
+              console.log(
+                "getAvailableChats: No chat ID extracted from href:",
+                href
+              );
+              return null;
+            }
 
-                if (
-                  elementTitle &&
-                  elementTitle !== chatId &&
-                  elementTitle.length > 0
-                ) {
-                  title = elementTitle;
-                  break;
+            if (existingChatIds.has(chatId)) {
+              console.log(
+                "getAvailableChats: Chat ID already in current folder, skipping:",
+                chatId
+              );
+              return null;
+            }
+
+            // Try to get the title from multiple sources
+            let title = link.textContent?.trim();
+
+            // If no text content, try to find title in child elements
+            if (!title || title === chatId) {
+              // Look for title in various child elements
+              const titleSelectors = [
+                "[title]",
+                "[data-title]",
+                ".title",
+                ".chat-title",
+                ".truncate",
+                "span",
+                "div",
+                "[class*='truncate']",
+                "[class*='title']",
+              ];
+
+              for (const selector of titleSelectors) {
+                const titleElement = link.querySelector(selector);
+                if (titleElement) {
+                  const elementTitle =
+                    titleElement.getAttribute("title") ||
+                    titleElement.getAttribute("data-title") ||
+                    titleElement.textContent?.trim();
+
+                  if (
+                    elementTitle &&
+                    elementTitle !== chatId &&
+                    elementTitle.length > 0
+                  ) {
+                    title = elementTitle;
+                    break;
+                  }
                 }
               }
             }
-          }
 
-          // Also try to get title from the link's own attributes
-          if (!title || title === chatId) {
-            title =
-              link.getAttribute("title") ||
-              link.getAttribute("data-title") ||
-              link.getAttribute("aria-label") ||
-              undefined;
-          }
-
-          // Fallback to a formatted chat ID if no title found
-          if (!title || title === chatId) {
-            title = `Chat ${chatId}`;
-          }
-
-          // Find which folders this chat is already in
-          const folderIds = folders
-            .filter((folder) =>
-              folder.conversations.some((conv) => conv.id === chatId)
-            )
-            .map((folder) => folder.id);
-
-          console.log(
-            `Found chat: ${title} (${chatId}) - In folders: ${folderIds.join(
-              ", "
-            )}`
-          );
-
-          const conversation: Conversation = {
-            id: chatId,
-            title,
-            url: `/c/${chatId}`,
-            preview: "",
-            platform: "chatgpt" as Platform,
-            timestamp: Date.now(),
-          };
-
-          // Only add folderIds if the chat is in any folders
-          if (folderIds.length > 0) {
-            conversation.folderIds = folderIds;
-          }
-
-          return conversation;
-        })
-        .filter((chat): chat is Conversation => chat !== null);
-
-      console.log(
-        "getAvailableChats: processChatLinks returning",
-        processedChats.length,
-        "chats"
-      );
-      return processedChats;
-    }
-  },
-
-  handleSubmitNewFolder: () => {
-    const { newFolderName, selectedEmoji } = get();
-    if (!newFolderName.trim()) return;
-
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name: newFolderName.trim(),
-      emoji: selectedEmoji,
-      conversations: [],
-      createdAt: Date.now(),
-    };
-
-    get().addFolder(newFolder);
-    set({ newFolderName: "", showNewFolderModal: false });
-  },
-
-  handleSaveEdit: () => {
-    const { editingFolder, newFolderName, selectedEmoji } = get();
-    if (!editingFolder || !newFolderName.trim()) return;
-
-    const updatedFolder: Folder = {
-      ...editingFolder,
-      name: newFolderName.trim(),
-      emoji: selectedEmoji,
-    };
-
-    get().updateFolder(updatedFolder);
-    set({ editingFolder: null, newFolderName: "", showNewFolderModal: false });
-  },
-
-  addChatsToFolder: async () => {
-    const { selectedFolder, selectedChats } = get();
-    if (!selectedFolder) return;
-
-    // Check subscription limits
-    const subscriptionStore = useSubscriptionStore.getState();
-    const { canAddChat } = subscriptionStore.checkUsageLimits();
-
-    if (!canAddChat) {
-      // Emit event to show subscription modal
-      window.dispatchEvent(
-        new CustomEvent("showSubscriptionModal", {
-          detail: { trigger: "limit-reached" },
-        })
-      );
-      return;
-    }
-
-    // Filter out chats that already exist in the folder
-    const existingChatIds = new Set(
-      selectedFolder.conversations.map((conv) => conv.id)
-    );
-    const newChats = selectedChats.filter(
-      (chatId) => !existingChatIds.has(chatId)
-    );
-
-    if (newChats.length === 0) {
-      console.log(
-        "No new chats to add to folder - all selected chats already exist in the folder"
-      );
-      set({ selectedChats: [], showAddChatsModal: false });
-      return;
-    }
-
-    console.log(
-      `Adding ${newChats.length} new chats to folder ${selectedFolder.id}`
-    );
-
-    try {
-      // Get the available chats to get their titles
-      const availableChats = await get().getAvailableChats();
-      const availableChatsMap = new Map(
-        availableChats.map((chat) => [chat.id, chat])
-      );
-
-      const updatedFolder: Folder = {
-        ...selectedFolder,
-        conversations: [
-          ...selectedFolder.conversations,
-          ...newChats.map((chatId) => {
-            // Try to get the chat info from available chats
-            const availableChat = availableChatsMap.get(chatId);
-            if (availableChat) {
-              return {
-                id: chatId,
-                title: availableChat.title,
-                url: availableChat.url,
-                preview: availableChat.preview,
-                platform: availableChat.platform,
-                timestamp: availableChat.timestamp,
-              };
-            } else {
-              // Fallback to generic title if not found
-              return {
-                id: chatId,
-                title: `Chat ${chatId}`,
-                url: `/c/${chatId}`,
-                preview: "",
-                platform: "chatgpt" as Platform,
-                timestamp: Date.now(),
-              };
+            // Also try to get title from the link's own attributes
+            if (!title || title === chatId) {
+              title =
+                link.getAttribute("title") ||
+                link.getAttribute("data-title") ||
+                link.getAttribute("aria-label") ||
+                undefined;
             }
-          }),
-        ],
+
+            // Fallback to a formatted chat ID if no title found
+            if (!title || title === chatId) {
+              title = `Chat ${chatId}`;
+            }
+
+            // Find which folders this chat is already in
+            const folderIds = folders
+              .filter((folder) =>
+                folder.conversations.some((conv) => conv.id === chatId)
+              )
+              .map((folder) => folder.id);
+
+            console.log(
+              `Found chat: ${title} (${chatId}) - In folders: ${folderIds.join(
+                ", "
+              )}`
+            );
+
+            const conversation: Conversation = {
+              id: chatId,
+              title,
+              url: `/c/${chatId}`,
+              preview: "",
+              platform: "chatgpt" as Platform,
+              timestamp: Date.now(),
+            };
+
+            // Only add folderIds if the chat is in any folders
+            if (folderIds.length > 0) {
+              conversation.folderIds = folderIds;
+            }
+
+            return conversation;
+          })
+          .filter((chat): chat is Conversation => chat !== null);
+
+        console.log(
+          "getAvailableChats: processChatLinks returning",
+          processedChats.length,
+          "chats"
+        );
+        return processedChats;
+      }
+    },
+
+    handleSubmitNewFolder: () => {
+      const { newFolderName, selectedEmoji } = get();
+      if (!newFolderName.trim()) return;
+
+      const newFolder: Folder = {
+        id: Date.now().toString(),
+        name: newFolderName.trim(),
+        emoji: selectedEmoji,
+        conversations: [],
+        createdAt: Date.now(),
       };
 
-      // Update the folder in the store
+      get().addFolder(newFolder);
+      set({ newFolderName: "", showNewFolderModal: false });
+    },
+
+    handleSaveEdit: () => {
+      const { editingFolder, newFolderName, selectedEmoji } = get();
+      if (!editingFolder || !newFolderName.trim()) return;
+
+      const updatedFolder: Folder = {
+        ...editingFolder,
+        name: newFolderName.trim(),
+        emoji: selectedEmoji,
+      };
+
       get().updateFolder(updatedFolder);
-
-      // Update the selectedFolder to reflect the new state
       set({
-        selectedFolder: updatedFolder,
-        selectedChats: [],
-        showAddChatsModal: false,
+        editingFolder: null,
+        newFolderName: "",
+        showNewFolderModal: false,
       });
+    },
 
-      // Update usage metrics
-      subscriptionStore.updateUsageMetrics();
-    } catch (error) {
-      console.error("Error adding chats to folder:", error);
-      // Still close the modal even if there's an error
-      set({ selectedChats: [], showAddChatsModal: false });
-    }
-  },
+    addChatsToFolder: async () => {
+      const { selectedFolder, selectedChats } = get();
+      if (!selectedFolder) return;
 
-  handleAddChatToFolders: () => {
-    const { folders, selectedChatForFolders } = get();
-    if (!selectedChatForFolders?.folderIds?.length) return;
+      // Check subscription limits
+      const subscriptionStore = useSubscriptionStore.getState();
+      const { canAddChat } = subscriptionStore.checkUsageLimits();
 
-    const updatedFolders = folders.map((folder) => {
-      if (selectedChatForFolders.folderIds?.includes(folder.id)) {
-        // Check if the chat already exists in this folder
-        const chatExists = folder.conversations.some(
-          (conv) => conv.id === selectedChatForFolders.id
+      if (!canAddChat) {
+        // Emit event to show subscription modal
+        window.dispatchEvent(
+          new CustomEvent("showSubscriptionModal", {
+            detail: { trigger: "limit-reached" },
+          })
+        );
+        return;
+      }
+
+      // Filter out chats that already exist in the folder
+      const existingChatIds = new Set(
+        selectedFolder.conversations.map((conv) => conv.id)
+      );
+      const newChats = selectedChats.filter(
+        (chatId) => !existingChatIds.has(chatId)
+      );
+
+      if (newChats.length === 0) {
+        console.log(
+          "No new chats to add to folder - all selected chats already exist in the folder"
+        );
+        set({ selectedChats: [], showAddChatsModal: false });
+        return;
+      }
+
+      console.log(
+        `Adding ${newChats.length} new chats to folder ${selectedFolder.id}`
+      );
+
+      try {
+        // Get the available chats to get their titles
+        const availableChats = await get().getAvailableChats();
+        const availableChatsMap = new Map(
+          availableChats.map((chat) => [chat.id, chat])
         );
 
-        // Only add the chat if it doesn't already exist in the folder
-        if (!chatExists) {
-          console.log(
-            `Adding chat ${selectedChatForFolders.id} to folder ${folder.id}`
+        const updatedFolder: Folder = {
+          ...selectedFolder,
+          conversations: [
+            ...selectedFolder.conversations,
+            ...newChats.map((chatId) => {
+              // Try to get the chat info from available chats
+              const availableChat = availableChatsMap.get(chatId);
+              if (availableChat) {
+                return {
+                  id: chatId,
+                  title: availableChat.title,
+                  url: availableChat.url,
+                  preview: availableChat.preview,
+                  platform: availableChat.platform,
+                  timestamp: availableChat.timestamp,
+                };
+              } else {
+                // Fallback to generic title if not found
+                return {
+                  id: chatId,
+                  title: `Chat ${chatId}`,
+                  url: `/c/${chatId}`,
+                  preview: "",
+                  platform: "chatgpt" as Platform,
+                  timestamp: Date.now(),
+                };
+              }
+            }),
+          ],
+        };
+
+        // Update the folder in the store
+        get().updateFolder(updatedFolder);
+
+        // Update the selectedFolder to reflect the new state
+        set({
+          selectedFolder: updatedFolder,
+          selectedChats: [],
+          showAddChatsModal: false,
+        });
+
+        // Update usage metrics
+        subscriptionStore.updateUsageMetrics();
+      } catch (error) {
+        console.error("Error adding chats to folder:", error);
+        // Still close the modal even if there's an error
+        set({ selectedChats: [], showAddChatsModal: false });
+      }
+    },
+
+    handleAddChatToFolders: () => {
+      const { folders, selectedChatForFolders } = get();
+      if (!selectedChatForFolders?.folderIds?.length) return;
+
+      const updatedFolders = folders.map((folder) => {
+        if (selectedChatForFolders.folderIds?.includes(folder.id)) {
+          // Check if the chat already exists in this folder
+          const chatExists = folder.conversations.some(
+            (conv) => conv.id === selectedChatForFolders.id
           );
-          return {
-            ...folder,
-            conversations: [
-              ...folder.conversations,
-              {
-                id: selectedChatForFolders.id,
-                title: selectedChatForFolders.title,
-                url: selectedChatForFolders.url,
-                preview: selectedChatForFolders.preview,
-                platform: selectedChatForFolders.platform,
-                timestamp: selectedChatForFolders.timestamp,
-              },
-            ],
-          };
-        } else {
-          console.log(
-            `Chat ${selectedChatForFolders.id} already exists in folder ${folder.id}`
-          );
+
+          // Only add the chat if it doesn't already exist in the folder
+          if (!chatExists) {
+            console.log(
+              `Adding chat ${selectedChatForFolders.id} to folder ${folder.id}`
+            );
+            return {
+              ...folder,
+              conversations: [
+                ...folder.conversations,
+                {
+                  id: selectedChatForFolders.id,
+                  title: selectedChatForFolders.title,
+                  url: selectedChatForFolders.url,
+                  preview: selectedChatForFolders.preview,
+                  platform: selectedChatForFolders.platform,
+                  timestamp: selectedChatForFolders.timestamp,
+                },
+              ],
+            };
+          } else {
+            console.log(
+              `Chat ${selectedChatForFolders.id} already exists in folder ${folder.id}`
+            );
+          }
+        }
+        return folder;
+      });
+
+      set({
+        folders: updatedFolders,
+        selectedChatForFolders: null,
+        showFolderSelectionModal: false,
+      });
+      saveFoldersToStorage(updatedFolders);
+
+      // Sync to cloud if enabled
+      if (get().isCloudEnabled && get().isOnline) {
+        const authStore = useAuthStore.getState();
+        if (authStore.user) {
+          // Sync all updated folders to cloud
+          get().syncToCloud();
         }
       }
-      return folder;
-    });
 
-    set({
-      folders: updatedFolders,
-      selectedChatForFolders: null,
-      showFolderSelectionModal: false,
-    });
-    saveFoldersToStorage(updatedFolders);
+      // Update usage metrics
+      const subscriptionStore = useSubscriptionStore.getState();
+      subscriptionStore.updateUsageMetrics();
+    },
 
-    // Sync to cloud if enabled
-    if (get().isCloudEnabled && get().isOnline) {
+    setEditingFolderName: (name) => set({ editingFolderName: name }),
+    setEditingFolderEmoji: (emoji) => set({ editingFolderEmoji: emoji }),
+    handleCancelNewFolder: () =>
+      set({ newFolderName: "", showNewFolderModal: false }),
+    handleCancelEdit: () =>
+      set({
+        editingFolder: null,
+        editingFolderName: "",
+        editingFolderEmoji: "📁",
+        showNewFolderModal: false,
+      }),
+
+    // Cloud storage actions
+    enableCloudStorage: async () => {
       const authStore = useAuthStore.getState();
-      if (authStore.user) {
-        // Sync all updated folders to cloud
-        get().syncToCloud();
+      if (!authStore.isAuthenticated) {
+        throw new Error("User must be authenticated to enable cloud storage");
       }
-    }
 
-    // Update usage metrics
-    const subscriptionStore = useSubscriptionStore.getState();
-    subscriptionStore.updateUsageMetrics();
-  },
+      set({ isCloudEnabled: true, syncStatus: "syncing" });
 
-  setEditingFolderName: (name) => set({ editingFolderName: name }),
-  setEditingFolderEmoji: (emoji) => set({ editingFolderEmoji: emoji }),
-  handleCancelNewFolder: () =>
-    set({ newFolderName: "", showNewFolderModal: false }),
-  handleCancelEdit: () =>
-    set({
-      editingFolder: null,
-      editingFolderName: "",
-      editingFolderEmoji: "📁",
-      showNewFolderModal: false,
-    }),
+      try {
+        console.log("EnableCloudStorage: Starting cloud sync process");
+        console.log("EnableCloudStorage: User ID:", authStore.user!.uid);
 
-  // Cloud storage actions
-  enableCloudStorage: async () => {
-    const authStore = useAuthStore.getState();
-    if (!authStore.isAuthenticated) {
-      throw new Error("User must be authenticated to enable cloud storage");
-    }
+        // Get local folders from current store state
+        const localFolders = get().folders;
+        console.log(
+          "EnableCloudStorage: Found",
+          localFolders.length,
+          "local folders:",
+          localFolders.map((f) => ({ id: f.id, name: f.name }))
+        );
 
-    set({ isCloudEnabled: true, syncStatus: "syncing" });
+        // Add all local folders to Firebase
+        if (localFolders.length > 0) {
+          console.log("EnableCloudStorage: Adding local folders to Firebase");
+          for (const localFolder of localFolders) {
+            try {
+              await cloudStorage.saveFolder(authStore.user!.uid, localFolder);
+              console.log(
+                `EnableCloudStorage: Added local folder "${localFolder.name}" to Firebase`
+              );
+            } catch (error) {
+              console.warn(
+                `EnableCloudStorage: Failed to add local folder "${localFolder.name}" to Firebase:`,
+                error
+              );
+            }
+          }
+        }
 
-    try {
-      console.log("EnableCloudStorage: Starting cloud sync process");
+        // Get the updated folders from Firebase
+        const cloudFolders = await cloudStorage.getUserFolders(
+          authStore.user!.uid
+        );
+        console.log(
+          "EnableCloudStorage: Found",
+          cloudFolders.length,
+          "folders in Firebase:",
+          cloudFolders.map((f) => ({ id: f.id, name: f.name }))
+        );
 
-      // First, get existing cloud data
-      const cloudFolders = await cloudStorage.getUserFolders(
-        authStore.user!.uid
-      );
+        // Check subscription limits for free users
+        const subscriptionStore = useSubscriptionStore.getState();
+        const { canCreateFolder } = subscriptionStore.checkUsageLimits();
+
+        let finalFolders = cloudFolders;
+
+        // If user is free and has more than 3 folders, keep only the first 3
+        if (!canCreateFolder && cloudFolders.length > 3) {
+          console.log(
+            `EnableCloudStorage: Free user has ${cloudFolders.length} folders, keeping only first 3`
+          );
+
+          // Keep the first 3 folders (most recent ones)
+          finalFolders = cloudFolders.slice(0, 3);
+
+          // Remove excess folders from Firebase
+          const foldersToRemove = cloudFolders.slice(3);
+          console.log(
+            `EnableCloudStorage: Removing ${foldersToRemove.length} excess folders from Firebase:`,
+            foldersToRemove.map((f) => f.name)
+          );
+
+          for (const folder of foldersToRemove) {
+            try {
+              await cloudStorage.deleteFolder(authStore.user!.uid, folder.id);
+              console.log(
+                `EnableCloudStorage: Removed excess folder "${folder.name}" from Firebase`
+              );
+            } catch (error) {
+              console.warn(
+                `EnableCloudStorage: Failed to remove excess folder "${folder.name}" from Firebase:`,
+                error
+              );
+            }
+          }
+        }
+
+        // Update local state with final folders
+        set({ folders: finalFolders });
+        saveFoldersToStorage(finalFolders);
+
+        // Set up real-time listeners
+        console.log("EnableCloudStorage: Setting up cloud listeners");
+        get().setupCloudListeners();
+
+        set({ syncStatus: "synced", lastSync: new Date() });
+        console.log(
+          "EnableCloudStorage: Successfully enabled cloud storage and synced data"
+        );
+      } catch (error) {
+        console.error("Error enabling cloud storage:", error);
+        set({ syncStatus: "error" });
+        throw error;
+      }
+    },
+
+    disableCloudStorage: () => {
+      console.log("disableCloudStorage: Starting disable process");
       console.log(
-        "EnableCloudStorage: Found",
-        cloudFolders.length,
-        "folders in cloud"
+        "disableCloudStorage: Current folders before disable:",
+        get().folders.length,
+        get().folders.map((f) => ({ id: f.id, name: f.name }))
       );
 
-      // Get local data
-      const localFolders = get().folders;
+      get().cleanupCloudListeners();
+      set({ isCloudEnabled: false, syncStatus: "offline" });
+
+      console.log("disableCloudStorage: Cloud storage disabled");
       console.log(
-        "EnableCloudStorage: Found",
-        localFolders.length,
-        "local folders"
+        "disableCloudStorage: Current folders after disable:",
+        get().folders.length,
+        get().folders.map((f) => ({ id: f.id, name: f.name }))
       );
+    },
 
-      // Merge cloud and local data (cloud data takes precedence if there are conflicts)
-      const mergedFolders = mergeFoldersData(cloudFolders, localFolders);
-      console.log(
-        "EnableCloudStorage: Merged to",
-        mergedFolders.length,
-        "folders"
-      );
+    syncToCloud: async () => {
+      const authStore = useAuthStore.getState();
+      if (!authStore.user || !get().isCloudEnabled) return;
 
-      // Update local state with merged data
-      set({ folders: mergedFolders });
-      saveFoldersToStorage(mergedFolders);
+      set({ syncStatus: "syncing" });
 
-      // Sync merged data back to cloud to ensure consistency
-      await cloudStorage.syncToCloud(authStore.user!.uid, mergedFolders);
-      await cloudStorage.updateLastSync(authStore.user!.uid);
+      try {
+        await cloudStorage.syncToCloud(authStore.user.uid, get().folders);
+        await cloudStorage.updateLastSync(authStore.user.uid);
+        set({ syncStatus: "synced", lastSync: new Date() });
+      } catch (error) {
+        console.error("Error syncing to cloud:", error);
+        set({ syncStatus: "error" });
+      }
+    },
 
-      // Set up real-time listeners
-      get().setupCloudListeners();
+    syncFromCloud: async () => {
+      const authStore = useAuthStore.getState();
+      if (!authStore.user || !get().isCloudEnabled) return;
 
-      set({ syncStatus: "synced", lastSync: new Date() });
-      console.log(
-        "EnableCloudStorage: Successfully enabled cloud storage and synced data"
-      );
-    } catch (error) {
-      console.error("Error enabling cloud storage:", error);
-      set({ syncStatus: "error" });
-      throw error;
-    }
-  },
+      set({ syncStatus: "syncing" });
 
-  disableCloudStorage: () => {
-    get().cleanupCloudListeners();
-    set({ isCloudEnabled: false, syncStatus: "offline" });
-  },
+      try {
+        const cloudFolders = await cloudStorage.getUserFolders(
+          authStore.user.uid
+        );
+        set({ folders: cloudFolders });
+        saveFoldersToStorage(cloudFolders);
+        set({ syncStatus: "synced", lastSync: new Date() });
+      } catch (error) {
+        console.error("Error syncing from cloud:", error);
+        set({ syncStatus: "error" });
+      }
+    },
 
-  syncToCloud: async () => {
-    const authStore = useAuthStore.getState();
-    if (!authStore.user || !get().isCloudEnabled) return;
+    migrateToCloud: async () => {
+      const authStore = useAuthStore.getState();
+      if (!authStore.user) return;
 
-    set({ syncStatus: "syncing" });
-
-    try {
-      await cloudStorage.syncToCloud(authStore.user.uid, get().folders);
-      await cloudStorage.updateLastSync(authStore.user.uid);
-      set({ syncStatus: "synced", lastSync: new Date() });
-    } catch (error) {
-      console.error("Error syncing to cloud:", error);
-      set({ syncStatus: "error" });
-    }
-  },
-
-  syncFromCloud: async () => {
-    const authStore = useAuthStore.getState();
-    if (!authStore.user || !get().isCloudEnabled) return;
-
-    set({ syncStatus: "syncing" });
-
-    try {
-      const cloudFolders = await cloudStorage.getUserFolders(
-        authStore.user.uid
-      );
-      set({ folders: cloudFolders });
-      saveFoldersToStorage(cloudFolders);
-      set({ syncStatus: "synced", lastSync: new Date() });
-    } catch (error) {
-      console.error("Error syncing from cloud:", error);
-      set({ syncStatus: "error" });
-    }
-  },
-
-  migrateToCloud: async () => {
-    const authStore = useAuthStore.getState();
-    if (!authStore.user) return;
-
-    try {
-      const localFolders = get().folders;
-      await cloudStorage.migrateToCloud(authStore.user.uid, localFolders);
-      await cloudStorage.updateLastSync(authStore.user.uid);
-      set({ lastSync: new Date() });
-    } catch (error) {
-      console.error("Error migrating to cloud:", error);
-      throw error;
-    }
-  },
-
-  setupCloudListeners: () => {
-    const authStore = useAuthStore.getState();
-    if (!authStore.user) return;
-
-    try {
-      // Set up real-time listener for all folders
-      cloudStorage.setupFoldersListener(authStore.user.uid, (folders) => {
-        set({ folders });
-        saveFoldersToStorage(folders);
+      try {
+        const localFolders = get().folders;
+        await cloudStorage.migrateToCloud(authStore.user.uid, localFolders);
+        await cloudStorage.updateLastSync(authStore.user.uid);
         set({ lastSync: new Date() });
-      });
-    } catch (error) {
-      console.error("Error setting up cloud listeners:", error);
-    }
-  },
+      } catch (error) {
+        console.error("Error migrating to cloud:", error);
+        throw error;
+      }
+    },
 
-  cleanupCloudListeners: () => {
-    cloudStorage.cleanup();
-  },
+    setupCloudListeners: () => {
+      const authStore = useAuthStore.getState();
+      if (!authStore.user) return;
 
-  setSyncStatus: (status) => set({ syncStatus: status }),
-  setLastSync: (date) => set({ lastSync: date }),
-  setIsOnline: (online) => set({ isOnline: online }),
-}));
+      try {
+        // Set up real-time listener for all folders
+        cloudStorage.setupFoldersListener(authStore.user.uid, (folders) => {
+          set({ folders });
+          saveFoldersToStorage(folders);
+          set({ lastSync: new Date() });
+        });
+      } catch (error) {
+        console.error("Error setting up cloud listeners:", error);
+      }
+    },
+
+    cleanupCloudListeners: () => {
+      cloudStorage.cleanup();
+    },
+
+    setSyncStatus: (status) => set({ syncStatus: status }),
+    setLastSync: (date) => set({ lastSync: date }),
+    setIsOnline: (online) => set({ isOnline: online }),
+  };
+});

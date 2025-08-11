@@ -140,12 +140,23 @@ export const useSubscriptionStore = create<
   checkUsageLimits: () => {
     const { currentPlan, usageMetrics } = get();
     const plan = currentPlan || getDefaultPlan();
+    const authStore = useAuthStore.getState();
 
     if (plan.maxFolders === -1 && plan.maxChatsPerFolder === -1) {
       return { canCreateFolder: true, canAddChat: true };
     }
 
-    const currentFolders = usageMetrics?.foldersCount || 0;
+    // For unauthenticated users, check local storage folders
+    let currentFolders = 0;
+    if (!authStore.isAuthenticated) {
+      // Get folders from local storage for unauthenticated users
+      const sidePanelStore = useSidePanelStore.getState();
+      currentFolders = sidePanelStore.folders.length;
+    } else {
+      // For authenticated users, use usageMetrics
+      currentFolders = usageMetrics?.foldersCount || 0;
+    }
+
     const canCreateFolder =
       plan.maxFolders === -1 || currentFolders < plan.maxFolders;
 

@@ -8,6 +8,9 @@ import * as S from "../../styles/sidePanel";
 import { NewFolderModal } from "./NewFolderModal";
 import { AddChatsModal } from "./AddChatsModal";
 import { CloudStorageStatus } from "../cloud/CloudStorageStatus";
+import { useAuthStore } from "../../store/authStore";
+import { useSubscriptionStore } from "../../store/subscriptionStore";
+import { Conversation } from "../../types/sidePanel";
 
 export const SidePanel: React.FC<SidePanelProps> = ({
   isOpen,
@@ -40,6 +43,9 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     handleCancelNewFolder,
     handleCancelEdit,
   } = useSidePanelStore();
+
+  const { isAuthenticated } = useAuthStore();
+  const { checkUsageLimits } = useSubscriptionStore();
 
   // State to track the current chat ID
   const [localCurrentChatId, setLocalCurrentChatId] = useState<string | null>(
@@ -160,7 +166,32 @@ export const SidePanel: React.FC<SidePanelProps> = ({
     <S.SidePanelContainer isOpen={isOpen}>
       <S.Header>
         <S.Title>Folders</S.Title>
-        <S.NewFolderButton onClick={() => setShowNewFolderModal(true)}>
+        <S.NewFolderButton
+          onClick={() => {
+            // Check if user can create more folders (respects free plan limits)
+            const { canCreateFolder } = checkUsageLimits();
+            if (!canCreateFolder) {
+              if (!isAuthenticated) {
+                // Show login modal for unauthenticated users who have reached the limit
+                window.dispatchEvent(
+                  new CustomEvent("showAuthModal", {
+                    detail: { trigger: "limit-reached" },
+                  })
+                );
+              } else {
+                // Show subscription modal for authenticated users who have reached their limit
+                window.dispatchEvent(
+                  new CustomEvent("showSubscriptionModal", {
+                    detail: { trigger: "limit-reached" },
+                  })
+                );
+              }
+              return;
+            }
+
+            setShowNewFolderModal(true);
+          }}
+        >
           <span className="text-lg">📁</span>
           <span>New Folder</span>
         </S.NewFolderButton>
