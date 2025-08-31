@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from "./authStore";
 import { useSidePanelStore } from "./sidePanelStore";
 import { subscriptionAPI, withRetry } from "../services/api";
+import { subscriptionService } from "../services/subscriptionService";
 
 interface SubscriptionActions {
   // Subscription management
@@ -30,7 +31,10 @@ interface SubscriptionActions {
 
   // Usage tracking
   updateUsageMetrics: () => Promise<void>;
-  checkUsageLimits: () => { canCreateFolder: boolean; canAddChat: boolean };
+  checkUsageLimits: () => {
+    canCreateFolder: boolean;
+    canAddChat: (folderId: string) => boolean;
+  };
 
   // Subscription actions
   createCheckoutSession: (planId: string) => Promise<string>;
@@ -39,6 +43,11 @@ interface SubscriptionActions {
 
   // Initialize subscription
   initializeSubscription: () => Promise<void>;
+
+  // Real-time listeners
+  setupSubscriptionListener: () => void;
+  setupUsageListener: () => void;
+  cleanupListeners: () => void;
 }
 
 export const useSubscriptionStore = create<
@@ -101,9 +110,6 @@ export const useSubscriptionStore = create<
     if (!authStore.user) return;
 
     try {
-      set({ isLoading: true });
-
-      // Get current folders and chats from sidePanelStore
       const sidePanelStore = useSidePanelStore.getState();
       const folders = sidePanelStore.folders;
 
@@ -114,13 +120,13 @@ export const useSubscriptionStore = create<
           (total, folder) => total + folder.conversations.length,
           0
         ),
-        storageUsed: JSON.stringify(folders).length, // Simple size calculation
+        storageUsed: JSON.stringify(folders).length,
         lastUpdated: new Date(),
       };
 
       set({ usageMetrics: metrics });
 
-      // Save to backend API if cloud storage is available
+      // Save to backend API (which saves to Firebase)
       if (get().checkFeatureAccess("cloudStorage")) {
         try {
           await withRetry(() => subscriptionAPI.updateUsageMetrics(metrics));
@@ -132,132 +138,111 @@ export const useSubscriptionStore = create<
     } catch (error) {
       console.error("Error updating usage metrics:", error);
       set({ error: "Failed to update usage metrics" });
-    } finally {
-      set({ isLoading: false });
     }
   },
 
   checkUsageLimits: () => {
-    const { currentPlan, usageMetrics } = get();
-    const plan = currentPlan || getDefaultPlan();
-    const authStore = useAuthStore.getState();
-
-    if (plan.maxFolders === -1 && plan.maxChatsPerFolder === -1) {
-      return { canCreateFolder: true, canAddChat: true };
-    }
-
-    // For unauthenticated users, check local storage folders
-    let currentFolders = 0;
-    if (!authStore.isAuthenticated) {
-      // Get folders from local storage for unauthenticated users
-      const sidePanelStore = useSidePanelStore.getState();
-      currentFolders = sidePanelStore.folders.length;
-    } else {
-      // For authenticated users, use usageMetrics
-      currentFolders = usageMetrics?.foldersCount || 0;
-    }
+    const { currentPlan } = get();
+    const sidePanelStore = useSidePanelStore.getState();
+    const folders = sidePanelStore.folders;
 
     const canCreateFolder =
-      plan.maxFolders === -1 || currentFolders < plan.maxFolders;
+      currentPlan?.maxFolders === -1 ||
+      folders.length < (currentPlan?.maxFolders || 3);
 
-    // For chat limits, we need to check the current folder being used
-    const sidePanelStore = useSidePanelStore.getState();
-    const selectedFolder = sidePanelStore.selectedFolder;
-    const currentChatsInFolder = selectedFolder?.conversations.length || 0;
-    const canAddChat =
-      plan.maxChatsPerFolder === -1 ||
-      currentChatsInFolder < plan.maxChatsPerFolder;
+    const canAddChat = (folderId: string) => {
+      const folder = folders.find((f) => f.id === folderId);
+      if (!folder) return false;
+
+      return (
+        currentPlan?.maxChatsPerFolder === -1 ||
+        folder.conversations.length < (currentPlan?.maxChatsPerFolder || 10)
+      );
+    };
 
     return { canCreateFolder, canAddChat };
   },
 
   createCheckoutSession: async (planId: string) => {
-    const authStore = useAuthStore.getState();
-    if (!authStore.user) {
-      throw new Error("User must be authenticated to create checkout session");
-    }
-
     try {
       set({ isLoading: true, error: null });
 
-      // Call backend API to create Stripe checkout session
-      const checkoutSession = await withRetry(() =>
+      const response = await withRetry(() =>
         subscriptionAPI.createCheckoutSession(planId)
       );
 
-      set({ isLoading: false });
-      return checkoutSession.url;
+      if (response.url) {
+        // For Chrome extension, open Stripe checkout in a new tab
+        if (planId === "free") {
+          // For free plan, just refresh subscription data
+          await get().initializeSubscription();
+          return "free_activated";
+        } else {
+          // For paid plan, open Stripe checkout in new tab
+          // Use window.open instead of chrome.tabs.create for content script compatibility
+          const newWindow = window.open(response.url, "_blank");
+          if (!newWindow) {
+            throw new Error(
+              "Popup blocked. Please allow popups for this site."
+            );
+          }
+          return response.url; // Return the checkout URL for manual opening if needed
+        }
+      }
+
+      return response.url;
     } catch (error) {
       console.error("Error creating checkout session:", error);
-      set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create checkout session",
-        isLoading: false,
-      });
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create checkout session";
+      set({ error: errorMessage });
       throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   cancelSubscription: async () => {
-    const { userSubscription } = get();
-    if (!userSubscription) {
-      throw new Error("No active subscription to cancel");
-    }
-
     try {
       set({ isLoading: true, error: null });
 
-      // Call backend API to cancel subscription
       await withRetry(() => subscriptionAPI.cancelSubscription());
 
-      // Update local state
-      set({
-        userSubscription: { ...userSubscription, cancelAtPeriodEnd: true },
-        currentPlan: SUBSCRIPTION_PLANS.FREE,
-        isLoading: false,
-      });
+      // Refresh subscription data
+      await get().initializeSubscription();
     } catch (error) {
       console.error("Error canceling subscription:", error);
-      set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to cancel subscription",
-        isLoading: false,
-      });
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to cancel subscription";
+      set({ error: errorMessage });
       throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   reactivateSubscription: async () => {
-    const { userSubscription } = get();
-    if (!userSubscription) {
-      throw new Error("No subscription to reactivate");
-    }
-
     try {
       set({ isLoading: true, error: null });
 
-      // Call backend API to reactivate subscription
       await withRetry(() => subscriptionAPI.reactivateSubscription());
 
-      // Update local state
-      set({
-        userSubscription: { ...userSubscription, cancelAtPeriodEnd: false },
-        isLoading: false,
-      });
+      // Refresh subscription data
+      await get().initializeSubscription();
     } catch (error) {
       console.error("Error reactivating subscription:", error);
-      set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to reactivate subscription",
-        isLoading: false,
-      });
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to reactivate subscription";
+      set({ error: errorMessage });
       throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -268,7 +253,7 @@ export const useSubscriptionStore = create<
     try {
       set({ isLoading: true, error: null });
 
-      // Fetch user subscription from backend API
+      // Fetch user subscription from backend API (now connected to Firebase)
       const [userSubscription, usageMetrics] = await Promise.all([
         withRetry(() => subscriptionAPI.getUserSubscription()),
         withRetry(() => subscriptionAPI.getUsageMetrics()),
@@ -289,6 +274,10 @@ export const useSubscriptionStore = create<
         usageMetrics,
         isLoading: false,
       });
+
+      // Set up real-time listeners for subscription changes
+      get().setupSubscriptionListener();
+      get().setupUsageListener();
     } catch (error) {
       console.error("Error initializing subscription:", error);
       set({
@@ -306,5 +295,72 @@ export const useSubscriptionStore = create<
         usageMetrics: null,
       });
     }
+  },
+
+  setupSubscriptionListener: () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.user) return;
+
+    try {
+      const unsubscribe = subscriptionService.setupSubscriptionListener(
+        authStore.user.uid,
+        (subscription) => {
+          if (subscription) {
+            const plan = getPlanById(subscription.planId);
+            set({
+              userSubscription: subscription,
+              currentPlan: plan || SUBSCRIPTION_PLANS.FREE,
+            });
+            console.log(
+              "Subscription updated via real-time listener:",
+              subscription.planId
+            );
+          } else {
+            set({
+              userSubscription: null,
+              currentPlan: SUBSCRIPTION_PLANS.FREE,
+            });
+            console.log("Subscription removed via real-time listener");
+          }
+        }
+      );
+
+      // Store unsubscribe function for cleanup (not in state)
+      console.log("Subscription listener set up successfully");
+    } catch (error) {
+      console.error("Error setting up subscription listener:", error);
+    }
+  },
+
+  setupUsageListener: () => {
+    const authStore = useAuthStore.getState();
+    if (!authStore.user) return;
+
+    try {
+      const unsubscribe = subscriptionService.setupUsageListener(
+        authStore.user.uid,
+        (metrics) => {
+          set({ usageMetrics: metrics });
+          if (metrics) {
+            console.log("Usage metrics updated via real-time listener:", {
+              foldersCount: metrics.foldersCount,
+              totalChatsCount: metrics.totalChatsCount,
+            });
+          } else {
+            console.log("Usage metrics removed via real-time listener");
+          }
+        }
+      );
+
+      // Store unsubscribe function for cleanup (not in state)
+      console.log("Usage listener set up successfully");
+    } catch (error) {
+      console.error("Error setting up usage listener:", error);
+    }
+  },
+
+  cleanupListeners: () => {
+    subscriptionService.cleanup();
+    console.log("All listeners cleaned up");
   },
 }));

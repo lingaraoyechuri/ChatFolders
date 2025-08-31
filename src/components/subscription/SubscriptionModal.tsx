@@ -5,6 +5,7 @@ import { useSubscriptionStore } from "../../store/subscriptionStore";
 import { useAuthStore } from "../../store/authStore";
 import { SUBSCRIPTION_PLANS } from "../../config/subscriptionPlans";
 import { SubscriptionPlan } from "../../types/subscription";
+import PaymentResultModal from "./PaymentResultModal";
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -240,17 +241,26 @@ const LoadingSpinner = styled.div`
 export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   isOpen,
   onClose,
-  trigger = "upgrade",
+  trigger = "manual",
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPaymentResult, setShowPaymentResult] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<{
+    type: "success" | "error" | "loading";
+    title: string;
+    message: string;
+    checkoutUrl?: string;
+  } | null>(null);
 
   const {
     currentPlan,
+    userSubscription,
     usageMetrics,
     createCheckoutSession,
     checkUsageLimits,
     error,
+    isLoading,
+    initializeSubscription,
   } = useSubscriptionStore();
 
   const { user } = useAuthStore();
@@ -259,23 +269,74 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     setSelectedPlan(planId);
   };
 
-  const handleUpgrade = async () => {
-    if (!selectedPlan || !user) return;
-
+  const handleManualRefresh = async () => {
     try {
-      setIsLoading(true);
-      const checkoutUrl = await createCheckoutSession(selectedPlan);
-
-      // Open Stripe checkout in new window
-      window.open(checkoutUrl, "_blank");
-
-      // Close modal after successful checkout session creation
-      onClose();
+      await initializeSubscription();
+      console.log("Manual subscription refresh completed");
     } catch (error) {
-      console.error("Error creating checkout session:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Manual refresh failed:", error);
     }
+  };
+
+  const handleUpgrade = async (planId: string) => {
+    try {
+      setPaymentResult({
+        type: "loading",
+        title: "Processing Payment...",
+        message: "Please wait while we set up your subscription.",
+      });
+      setShowPaymentResult(true);
+
+      const result = await createCheckoutSession(planId);
+
+      if (result === "free_activated") {
+        setPaymentResult({
+          type: "success",
+          title: "Free Plan Activated!",
+          message:
+            "Your free plan has been activated successfully. You can now use all free features.",
+        });
+      } else {
+        // For paid plans, Stripe checkout opened in new tab
+        setPaymentResult({
+          type: "success",
+          title: "Checkout Opened",
+          message:
+            "Stripe checkout has been opened in a new tab. Please complete your payment there. If the tab didn't open, please check your popup blocker settings.",
+          checkoutUrl: result, // Pass the checkout URL
+        });
+      }
+    } catch (error) {
+      let errorMessage = "Failed to process payment. Please try again.";
+
+      if (error instanceof Error) {
+        if (error.message.includes("Popup blocked")) {
+          errorMessage =
+            "Popup was blocked. Please allow popups for this site and try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      setPaymentResult({
+        type: "error",
+        title: "Payment Failed",
+        message: errorMessage,
+      });
+    }
+  };
+
+  const handleClosePaymentResult = () => {
+    setShowPaymentResult(false);
+    setPaymentResult(null);
+    if (paymentResult?.type === "success") {
+      onClose(); // Close subscription modal on success
+    }
+  };
+
+  const handleRetry = () => {
+    setShowPaymentResult(false);
+    setPaymentResult(null);
   };
 
   const getTriggerMessage = () => {
@@ -319,7 +380,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           onClick={() => {
             if (!isCurrent) {
               handlePlanSelect(plan.id);
-              handleUpgrade();
+              handleUpgrade(plan.id);
             }
           }}
         >
@@ -350,7 +411,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const modalContent = (
     <ModalOverlay onClick={handleOverlayClick}>
-      <ModalContent>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
         <CloseButton onClick={onClose}>
           <svg
             width="24"
@@ -371,6 +432,20 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         <ModalHeader>
           <ModalTitle>Upgrade to Pro</ModalTitle>
           <ModalSubtitle>{getTriggerMessage()}</ModalSubtitle>
+          <button
+            onClick={handleManualRefresh}
+            style={{
+              background: "#f3f4f6",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              padding: "8px 12px",
+              fontSize: "12px",
+              cursor: "pointer",
+              marginTop: "8px",
+            }}
+          >
+            🔄 Refresh Subscription Status
+          </button>
         </ModalHeader>
 
         {usageMetrics && (
@@ -412,5 +487,21 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     </ModalOverlay>
   );
 
-  return createPortal(modalContent, document.body);
+  return (
+    <>
+      {createPortal(modalContent, document.body)}
+
+      {/* Payment result modal */}
+      {showPaymentResult && paymentResult && (
+        <PaymentResultModal
+          type={paymentResult.type}
+          title={paymentResult.title}
+          message={paymentResult.message}
+          onClose={handleClosePaymentResult}
+          onRetry={paymentResult.type === "error" ? handleRetry : undefined}
+          checkoutUrl={paymentResult.checkoutUrl}
+        />
+      )}
+    </>
+  );
 };

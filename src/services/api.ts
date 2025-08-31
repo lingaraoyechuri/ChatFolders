@@ -106,6 +106,14 @@ export const subscriptionAPI = {
       body: JSON.stringify({ paymentMethodId }),
     });
   },
+
+  // Verify payment (for success page)
+  verifyPayment: async (sessionId: string) => {
+    return apiCall("/subscriptions/verify-payment", {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    });
+  },
 };
 
 // Webhook handling for Stripe events
