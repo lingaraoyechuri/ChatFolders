@@ -16,7 +16,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         // Check if the page is one of our supported AI platforms
         if (url.includes("perplexity.ai") ||
             url.includes("chatgpt.com") ||
-            url.includes("chat.deepseek.com")) {
+            url.includes("chat.deepseek.com") ||
+            url.includes("gemini.google.com")) {
             // The page is a supported AI platform and has finished loading
             chrome.tabs.sendMessage(tabId, {
                 action: "aiPlatformDetected",
