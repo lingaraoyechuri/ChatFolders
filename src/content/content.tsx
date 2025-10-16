@@ -6,7 +6,18 @@ const App: React.FC = () => {
   const [questions, setQuestions] = React.useState<string[]>([]);
   const questionsCardRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    const chatContainer = document.querySelector("main");
+    // Try different container selectors for different platforms
+    let chatContainer = document.querySelector("main");
+    if (!chatContainer) {
+      // For Claude.ai, try the main content area
+      chatContainer = document.querySelector(
+        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1"
+      );
+    }
+    if (!chatContainer) {
+      // Fallback to body if no specific container found
+      chatContainer = document.body;
+    }
     if (!chatContainer) return;
 
     let lastQuestions: string[] = [];
@@ -61,13 +72,44 @@ const App: React.FC = () => {
         }
       }
 
+      // Claude.ai selector: user messages with data-testid="user-message"
+      const claudeQuestions = Array.from(
+        chatContainer.querySelectorAll('div[data-testid="user-message"]')
+      ).map((el) => {
+        // Find all p elements with the specific classes and join their content
+        const textElements = el.querySelectorAll(
+          "p.whitespace-pre-wrap.break-words"
+        );
+        if (textElements.length > 0) {
+          return Array.from(textElements)
+            .map((p) => p.textContent?.trim() || "")
+            .join("\n")
+            .trim();
+        }
+        // Fallback to getting all text content if the specific selector doesn't work
+        return el.textContent?.trim() || "";
+      });
+
       // Combine and deduplicate
       const allQuestions = [
         ...chatgptQuestions,
         ...perplexityQuestions,
         ...geminiQuestions,
         ...deepSeekQuestions,
+        ...claudeQuestions,
       ].filter((q) => q.trim() !== "");
+
+      // Debug logging
+      console.log("Extension Debug:", {
+        chatgptQuestions: chatgptQuestions.length,
+        perplexityQuestions: perplexityQuestions.length,
+        geminiQuestions: geminiQuestions.length,
+        deepSeekQuestions: deepSeekQuestions.length,
+        claudeQuestions: claudeQuestions.length,
+        totalQuestions: allQuestions.length,
+        claudeQuestionsContent: claudeQuestions,
+      });
+
       return Array.from(new Set(allQuestions));
     };
 
@@ -105,7 +147,18 @@ const App: React.FC = () => {
   }, []);
 
   const handleOnQuestionClick = (question: string) => {
-    const chatContainer = document.querySelector("main");
+    // Try different container selectors for different platforms
+    let chatContainer = document.querySelector("main");
+    if (!chatContainer) {
+      // For Claude.ai, try the main content area
+      chatContainer = document.querySelector(
+        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1"
+      );
+    }
+    if (!chatContainer) {
+      // Fallback to body if no specific container found
+      chatContainer = document.body;
+    }
     if (!chatContainer) return;
     // ChatGPT selector
     const chatgptElements = Array.from(
@@ -196,6 +249,37 @@ const App: React.FC = () => {
           }, 2000);
           return;
         }
+      }
+    }
+    // Claude.ai selector: match text and highlight the user message
+    const claudeUserMessages = Array.from(
+      chatContainer.querySelectorAll('div[data-testid="user-message"]')
+    );
+    console.log("claudeUserMessages", claudeUserMessages);
+    for (const msg of claudeUserMessages) {
+      const textElements = msg.querySelectorAll(
+        "p.whitespace-pre-wrap.break-words"
+      );
+      let messageText = "";
+      if (textElements.length > 0) {
+        messageText = Array.from(textElements)
+          .map((p) => p.textContent?.trim() || "")
+          .join("\n")
+          .trim();
+      } else {
+        // Fallback to getting all text content
+        messageText = msg.textContent?.trim() || "";
+      }
+      if (messageText === question.trim()) {
+        msg.scrollIntoView({ behavior: "smooth", block: "center" });
+        const htmlElement = msg as HTMLElement;
+        const originalBackground = htmlElement.style.backgroundColor;
+        htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
+        htmlElement.style.transition = "background-color 0.3s ease";
+        setTimeout(() => {
+          htmlElement.style.backgroundColor = originalBackground;
+        }, 2000);
+        return;
       }
     }
   };

@@ -12,6 +12,11 @@ module.exports = {
     path: path.resolve(__dirname, "dist"),
     filename: "[name].js",
   },
+  externals: {
+    // Prevent loading external resources
+    "https://fonts.googleapis.com": "undefined",
+    "https://fonts.gstatic.com": "undefined",
+  },
   module: {
     rules: [
       {

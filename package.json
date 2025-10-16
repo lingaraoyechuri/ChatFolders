@@ -1,19 +1,33 @@
 {
-  "name": "perplexity-extension",
+  "name": "ai-prompt-navigator",
   "version": "1.0.0",
-  "description": "Chrome extension for Perplexity",
+  "description": "Navigate and organize AI prompts across ChatGPT, Claude, Gemini, Perplexity & DeepSeek",
   "main": "index.js",
+  "homepage": "https://github.com/yourusername/ai-prompt-navigator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/ai-prompt-navigator.git"
+  },
   "scripts": {
     "start": "webpack --watch --config webpack.config.js",
     "build": "webpack --config webpack.config.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "chrome",
-    "extension",
+    "chrome-extension",
+    "ai-navigator",
+    "chatgpt",
+    "claude",
+    "gemini",
     "perplexity",
+    "deepseek",
+    "prompt-management",
+    "ai-productivity",
+    "conversation-organizer",
     "react",
-    "typescript"
+    "typescript",
+    "ai-tools",
+    "productivity-extension"
   ],
   "author": "",
   "license": "MIT",
@@ -31,12 +45,6 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.0",
-    "@mui/icons-material": "^6.4.6",
-    "@mui/material": "^6.4.6",
-    "@react-pdf/renderer": "^4.3.0",
-    "html2canvas": "^1.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "styled-components": "^6.1.15"

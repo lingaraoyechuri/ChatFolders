@@ -1,16 +1,33 @@
-# Perplexity Assistant Chrome Extension
+# AI Prompt Navigator - Chrome Extension
 
-A Chrome extension that enhances your experience on Perplexity.ai by adding a convenient side panel with additional functionality, including folder management, cloud storage, and subscription-based features.
+**Navigate, organize, and manage AI conversations across ChatGPT, Claude, Gemini, Perplexity, and DeepSeek with ease.**
 
-## Features
+A powerful Chrome extension that helps you organize, navigate, and manage your AI conversations. Copy prompts, highlight questions, and streamline your workflow across multiple AI platforms.
 
-- **Folder Management**: Organize your chats into custom folders
-- **Cloud Storage**: Sync your data across devices with Firebase
-- **Subscription System**: Premium features with Stripe integration
-- **Authentication**: Secure user authentication with Firebase Auth
-- **Cross-Platform Support**: Works on Perplexity, ChatGPT, and DeepSeek
-- **Export Features**: Download conversations as PDF or images
-- **Real-time Sync**: Automatic synchronization of your data
+## ✨ Key Features
+
+### 🎯 **AI Platform Support**
+
+- **ChatGPT**: Navigate and organize OpenAI conversations
+- **Claude**: Manage Anthropic AI interactions
+- **Gemini**: Organize Google AI conversations
+- **Perplexity**: Streamline search-based AI chats
+- **DeepSeek**: Navigate coding and technical discussions
+
+### 🚀 **Core Functionality**
+
+- **Smart Question Detection**: Automatically finds and lists all your questions
+- **One-Click Navigation**: Jump to any question in your conversation
+- **Copy to Clipboard**: Instantly copy prompts with modern UI
+- **Visual Highlighting**: Smooth scroll and highlight animations
+- **Compact Design**: More questions visible in less space
+
+### 💡 **User Experience**
+
+- **Hover Interactions**: Modern copy buttons appear on hover
+- **Smooth Animations**: Professional slide-in/out effects
+- **Responsive Design**: Works on all screen sizes
+- **Keyboard Accessible**: Full keyboard navigation support
 
 ## Architecture
 
