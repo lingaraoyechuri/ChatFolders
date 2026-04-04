@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "AI Prompt Navigator",
-  "version": "1.0.1",
-  "description": "Navigate and organize AI prompts on ChatGPT, Claude, and Gemini. Copy, highlight, and manage your conversations with ease.",
-  "short_name": "Prompt Navigator",
+  "name": "ChatGPT, Gemini, Claude Chat Export & Navigator",
+  "version": "1.0.3",
+  "description": "Download and export ChatGPT, Gemini, and Claude conversations in PDF, Markdown, JSON, HTML, or Text, plus smart prompt navigation.",
+  "short_name": "AI Chat Export & Navigator",
   "icons": {
     "16": "icon16.png",
     "32": "icon32.png",
@@ -15,6 +15,7 @@
     "https://gemini.google.com/*",
     "https://claude.ai/*"
   ],
+  "permissions": ["downloads"],
   "background": {
     "service_worker": "background.js"
   },
@@ -26,7 +27,8 @@
         "https://claude.ai/*"
       ],
       "js": ["content.js"],
-      "css": ["content.css"]
+      "css": ["content.css"],
+      "run_at": "document_idle"
     }
   ],
   "action": {
@@ -36,7 +38,8 @@
       "48": "icon48.png",
       "128": "icon128.png"
     },
-    "default_title": "AI Prompt Navigator - Organize & Navigate AI Conversations"
+    "default_title": "ChatGPT, Gemini, Claude Chat Export & Navigator",
+    "default_popup": "popup.html"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"

@@ -1,8 +1,8 @@
 # AI Prompt Navigator - Chrome Extension
 
-**Navigate, organize, and manage AI conversations across ChatGPT, Claude, Gemini, Perplexity, and DeepSeek with ease.**
+**Export, download, and organize AI conversations across ChatGPT, Claude, and Gemini. Download chats as Markdown, PDF, JSON, HTML, or Text. Copy full conversations as Markdown to continue context in new chats.**
 
-A powerful Chrome extension that helps you organize, navigate, and manage your AI conversations. Copy prompts, highlight questions, and streamline your workflow across multiple AI platforms.
+A powerful Chrome extension that helps you export, download, and manage your AI conversations. Download entire chats in multiple formats, copy conversations as Markdown to continue context, navigate between prompts, and streamline your workflow across multiple AI platforms.
 
 ## ✨ Key Features
 
@@ -16,11 +16,14 @@ A powerful Chrome extension that helps you organize, navigate, and manage your A
 
 ### 🚀 **Core Functionality**
 
+- **Export & Download Chats**: Download entire conversations in Markdown, PDF, JSON, HTML, or Text formats
+- **Copy as Markdown**: Copy full chat conversations as Markdown to paste into new chats and continue context when limits are reached
 - **Smart Question Detection**: Automatically finds and lists all your questions
 - **One-Click Navigation**: Jump to any question in your conversation
 - **Copy to Clipboard**: Instantly copy prompts with modern UI
 - **Visual Highlighting**: Smooth scroll and highlight animations
 - **Compact Design**: More questions visible in less space
+- **PDF Export**: Generate beautifully formatted PDFs with A4, Letter, or Single Page layouts
 
 ### 💡 **User Experience**
 

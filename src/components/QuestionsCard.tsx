@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes, css } from "styled-components";
 
 const slideIn = keyframes`
@@ -45,10 +45,14 @@ const Card = styled.div<{ $visible: boolean }>`
         `}
 `;
 
-const PromptsNavButton = styled.button`
+const PromptsNavButton = styled.button<{
+  $top: number;
+  $left: number;
+  $isDragging: boolean;
+}>`
   position: fixed;
-  top: 80px;
-  right: 20px;
+  top: ${(props) => props.$top}px;
+  left: ${(props) => props.$left}px;
   z-index: 10003;
   background: #1a1a1a;
   color: #fff;
@@ -57,16 +61,29 @@ const PromptsNavButton = styled.button`
   padding: 10px 24px;
   font-size: 15px;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: ${(props) =>
+    props.$isDragging
+      ? "0 4px 12px rgba(59, 130, 246, 0.4)"
+      : "0 2px 8px rgba(59, 130, 246, 0.15)"};
+  cursor: ${(props) => (props.$isDragging ? "grabbing" : "grab")};
+  transition: ${(props) =>
+    props.$isDragging ? "none" : "transform 0.15s, box-shadow 0.15s"};
   letter-spacing: 0.5px;
   outline: none;
   pointer-events: auto;
+  user-select: none;
+  transform: ${(props) => (props.$isDragging ? "scale(1.05)" : "scale(1)")};
   &:hover {
-    transform: scale(1.07);
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
+    transform: ${(props) =>
+      props.$isDragging ? "scale(1.05)" : "scale(1.07)"};
+    box-shadow: ${(props) =>
+      props.$isDragging
+        ? "0 4px 12px rgba(59, 130, 246, 0.4)"
+        : "0 4px 16px rgba(59, 130, 246, 0.25)"};
     background: linear-gradient(90deg, #2563eb 60%, #1e40af 100%);
+  }
+  &:active {
+    cursor: grabbing;
   }
 `;
 
@@ -93,7 +110,6 @@ const QuestionList = styled.ul`
   &::-webkit-scrollbar {
     display: none;
   }
-  /* Hide scrollbar for Firefox */
   scrollbar-width: none;
 `;
 
@@ -194,12 +210,135 @@ interface QuestionsCardProps {
   onQuestionClick?: (question: string) => void;
 }
 
+const STORAGE_KEY = "prompts-nav-button-position";
+
+// Helper function to get default position (top right corner)
+const getDefaultPosition = () => {
+  const buttonWidth = 120; // Approximate button width
+  const margin = 20; // Margin from edges
+  return {
+    top: 60, // Top margin (40px down from original 20px)
+    left: window.innerWidth - buttonWidth - margin - 10, // 10px left from original position
+  };
+};
+
+// Helper function to validate and constrain position within viewport
+const validatePosition = (position: { top: number; left: number }) => {
+  const buttonWidth = 120; // Approximate button width
+  const buttonHeight = 40; // Approximate button height
+  const margin = 20; // Minimum margin from edges
+
+  const maxLeft = window.innerWidth - buttonWidth - margin;
+  const maxTop = window.innerHeight - buttonHeight - margin;
+
+  return {
+    top: Math.max(margin, Math.min(position.top, maxTop)),
+    left: Math.max(margin, Math.min(position.left, maxLeft)),
+  };
+};
+
 export const QuestionsCard: React.FC<QuestionsCardProps> = ({
   questions,
   onQuestionClick,
 }) => {
   const [visible, setVisible] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const defaultPos = getDefaultPosition();
+  const [buttonPosition, setButtonPosition] = useState(defaultPos);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [hasMoved, setHasMoved] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Always reset to default position on mount/reload
+  useEffect(() => {
+    // Always use default position when application reloads
+    const defaultPos = getDefaultPosition();
+    setButtonPosition(defaultPos);
+  }, []);
+
+  // Handle window resize to keep button visible
+  useEffect(() => {
+    const handleResize = () => {
+      const validated = validatePosition(buttonPosition);
+      if (
+        validated.top !== buttonPosition.top ||
+        validated.left !== buttonPosition.left
+      ) {
+        setButtonPosition(validated);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [buttonPosition]);
+
+  // Save position to localStorage whenever it changes
+  useEffect(() => {
+    if (!isDragging) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buttonPosition));
+    }
+  }, [buttonPosition, isDragging]);
+
+  const handleButtonMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    setIsDragging(true);
+    setHasMoved(false);
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setHasMoved(true);
+        const newLeft = e.clientX - dragOffset.x;
+        const newTop = e.clientY - dragOffset.y;
+
+        // Constrain to viewport bounds
+        const maxLeft =
+          window.innerWidth - (buttonRef.current?.offsetWidth || 120);
+        const maxTop =
+          window.innerHeight - (buttonRef.current?.offsetHeight || 40);
+
+        setButtonPosition({
+          left: Math.max(0, Math.min(newLeft, maxLeft)),
+          top: Math.max(0, Math.min(newTop, maxTop)),
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        setTimeout(() => setHasMoved(false), 100);
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "none";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+    };
+  }, [isDragging, dragOffset]);
+
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!isDragging && !hasMoved) {
+      setVisible(true);
+    }
+  };
 
   const handleQuestionClick = (question: string) => {
     if (onQuestionClick) {
@@ -242,7 +381,15 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
   return (
     <>
       {!visible && (
-        <PromptsNavButton onClick={() => setVisible(true)}>
+        <PromptsNavButton
+          ref={buttonRef}
+          onClick={handleButtonClick}
+          onMouseDown={handleButtonMouseDown}
+          $top={buttonPosition.top}
+          $left={buttonPosition.left}
+          $isDragging={isDragging}
+          title="Drag to move, click to show prompts"
+        >
           Prompts Nav
         </PromptsNavButton>
       )}

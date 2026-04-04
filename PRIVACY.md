@@ -6,8 +6,14 @@ This Chrome extension does not collect, store, or transmit any personal or sensi
 
 ## What data do we access?
 
-- The extension only reads prompts and questions from supported chat pages (ChatGPT, Gemini) to display them in the extension UI.
+- The extension only reads prompts and questions from supported chat pages (ChatGPT, Claude, Gemini) to display them in the extension UI.
 - No data is collected, stored, or transmitted outside your device.
+
+## Local Storage
+
+- The extension uses browser localStorage to save your button position preferences.
+- This data remains on your device and is never transmitted anywhere.
+- You can clear this data at any time by clearing your browser's localStorage.
 
 ## User Privacy
 
@@ -18,4 +24,4 @@ This Chrome extension does not collect, store, or transmit any personal or sensi
 
 If you have any questions about this privacy policy, please contact the developer via the Chrome Web Store listing.
 
-_Last updated: October 5, 2025_
+_Last updated: January 2025_
