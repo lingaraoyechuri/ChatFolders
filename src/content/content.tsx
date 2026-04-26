@@ -702,20 +702,6 @@ const App: React.FC = () => {
           domRecords
         );
 
-        const lazyKey = conversationId
-          ? `conversation:${conversationId}`
-          : `path:${window.location.pathname}`;
-        if (chatGptLazyLoadedKeyRef.current !== lazyKey) {
-          const hydratedDomRecords = await runChatGPTLazyLoader(
-            chatContainer,
-            false
-          );
-          mergedRecords = mergePromptRecords(
-            chatGptCachedPromptsRef.current || [],
-            hydratedDomRecords
-          );
-        }
-
         const persistedRecords = mergeIntoAccumulatedChatGptRecords(mergedRecords);
         chatGptPromptRecordsRef.current = persistedRecords;
         chatgptQuestions = persistedRecords.map((record) => record.text);
@@ -841,7 +827,7 @@ const App: React.FC = () => {
       observer.disconnect();
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [mergeIntoAccumulatedChatGptRecords, runChatGPTLazyLoader]);
+  }, [mergeIntoAccumulatedChatGptRecords]);
 
   const handleOnQuestionClick = async (question: string, index?: number) => {
     // Try different container selectors for different platforms
@@ -1028,9 +1014,6 @@ const App: React.FC = () => {
         <QuestionsCard
           questions={questions}
           onQuestionClick={handleOnQuestionClick}
-          onOpen={() => {
-            void hydrateAllChatGptPromptsOnOpen();
-          }}
         />
       </div>
     </div>

@@ -57834,13 +57834,6 @@ const App = () => {
                     chatGptFetchInFlightRef.current = false;
                 }
                 let mergedRecords = mergePromptRecords(chatGptCachedPromptsRef.current || [], domRecords);
-                const lazyKey = conversationId
-                    ? `conversation:${conversationId}`
-                    : `path:${window.location.pathname}`;
-                if (chatGptLazyLoadedKeyRef.current !== lazyKey) {
-                    const hydratedDomRecords = yield runChatGPTLazyLoader(chatContainer, false);
-                    mergedRecords = mergePromptRecords(chatGptCachedPromptsRef.current || [], hydratedDomRecords);
-                }
                 const persistedRecords = mergeIntoAccumulatedChatGptRecords(mergedRecords);
                 chatGptPromptRecordsRef.current = persistedRecords;
                 chatgptQuestions = persistedRecords.map((record) => record.text);
@@ -57939,7 +57932,7 @@ const App = () => {
             if (debounceTimer)
                 clearTimeout(debounceTimer);
         };
-    }, [mergeIntoAccumulatedChatGptRecords, runChatGPTLazyLoader]);
+    }, [mergeIntoAccumulatedChatGptRecords]);
     const handleOnQuestionClick = (question, index) => __awaiter(void 0, void 0, void 0, function* () {
         var _a, _b, _c, _d, _e, _f;
         // Try different container selectors for different platforms
@@ -58083,9 +58076,7 @@ const App = () => {
             }
         }
     });
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { ref: questionsCardRef, style: { pointerEvents: "none" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { pointerEvents: "auto" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsCard__WEBPACK_IMPORTED_MODULE_3__.QuestionsCard, { questions: questions, onQuestionClick: handleOnQuestionClick, onOpen: () => {
-                    void hydrateAllChatGptPromptsOnOpen();
-                } }) }) }));
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { ref: questionsCardRef, style: { pointerEvents: "none" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { pointerEvents: "auto" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsCard__WEBPACK_IMPORTED_MODULE_3__.QuestionsCard, { questions: questions, onQuestionClick: handleOnQuestionClick }) }) }));
 };
 const createAppContainer = () => {
     const existingContainer = document.getElementById(EXTENSION_ROOT_ID);
