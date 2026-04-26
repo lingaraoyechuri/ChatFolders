@@ -58241,6 +58241,29 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
             return true; // Keep the message channel open for async response
         }
+        else if (format.toLowerCase() === "html" && isChatGPTPage()) {
+            // HTML export with image inlining is async for ChatGPT.
+            extractChatGPTHTMLAsync()
+                .then((chatContent) => {
+                if (chatContent) {
+                    sendResponse({ success: true, content: chatContent });
+                }
+                else {
+                    sendResponse({
+                        success: false,
+                        error: "No chat content found. Please make sure you have a conversation open.",
+                    });
+                }
+            })
+                .catch((error) => {
+                console.error("Error extracting ChatGPT HTML:", error);
+                sendResponse({
+                    success: false,
+                    error: error instanceof Error ? error.message : "Unknown error",
+                });
+            });
+            return true; // Keep the message channel open for async response
+        }
         else {
             // Synchronous formats (markdown, json, etc.)
             try {
@@ -58978,29 +59001,93 @@ function formatAsText(messages) {
 }
 // Extract ChatGPT conversation as HTML (full DOM structure)
 function extractChatGPTHTML() {
+    return extractChatGPTHTMLFromTurns(getChatGPTExportTurns());
+}
+function extractChatGPTHTMLAsync() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const turns = getChatGPTExportTurns();
+        if (turns.length === 0) {
+            return null;
+        }
+        for (const turn of turns) {
+            yield inlineImagesAsDataUrls(turn);
+        }
+        return createHTMLDocument(turns);
+    });
+}
+function getChatGPTExportTurns() {
+    const getChatGPTTurnElements = (container) => {
+        // New ChatGPT layout uses section[data-testid="conversation-turn-*"].
+        // Keep legacy article[data-turn-id] as fallback for older pages.
+        const turns = Array.from(container.querySelectorAll('[data-testid^="conversation-turn-"][data-turn-id], article[data-turn-id]'));
+        return turns.sort(compareDomOrder);
+    };
     // Find the main conversation container
-    const mainContainer = document.querySelector("div.flex.flex-col.text-sm.thread-xl\\:pt-header-height.pb-25");
-    if (!mainContainer) {
-        // Fallback: try to find any main container
-        const fallbackContainer = document.querySelector("main") || document.body;
-        if (!fallbackContainer)
-            return null;
-        // Try to find article elements (conversation turns)
-        const articles = Array.from(fallbackContainer.querySelectorAll("article[data-turn-id]"));
-        if (articles.length === 0)
-            return null;
-        return createHTMLDocument(articles);
-    }
+    const mainContainer = document.querySelector("div.flex.flex-col.text-sm");
+    // Fallback: try to find any main container
+    const baseContainer = mainContainer || document.querySelector("main") || document.body;
+    if (!baseContainer)
+        return [];
     // Clone the container to avoid modifying the original
-    const clonedContainer = mainContainer.cloneNode(true);
+    const clonedContainer = baseContainer.cloneNode(true);
     // Clean up unnecessary elements
     cleanHTMLForExport(clonedContainer);
-    // Get all article elements (conversation turns)
-    const articles = Array.from(clonedContainer.querySelectorAll("article[data-turn-id]"));
-    if (articles.length === 0) {
+    // Get all conversation turn elements
+    return getChatGPTTurnElements(clonedContainer);
+}
+function extractChatGPTHTMLFromTurns(turns) {
+    if (turns.length === 0) {
         return null;
     }
-    return createHTMLDocument(articles);
+    return createHTMLDocument(turns);
+}
+function inlineImagesAsDataUrls(container) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const images = Array.from(container.querySelectorAll("img[src]"));
+        if (images.length === 0) {
+            return;
+        }
+        yield Promise.all(images.map((img) => __awaiter(this, void 0, void 0, function* () {
+            const src = img.getAttribute("src");
+            if (!src || src.startsWith("data:")) {
+                return;
+            }
+            try {
+                const response = yield fetch(src, {
+                    credentials: "include",
+                    mode: "cors",
+                });
+                if (!response.ok) {
+                    return;
+                }
+                const blob = yield response.blob();
+                const dataUrl = yield blobToDataURL(blob);
+                img.setAttribute("src", dataUrl);
+                img.removeAttribute("srcset");
+            }
+            catch (error) {
+                // Non-blocking fallback: keep original image URL if inlining fails.
+                console.warn("Failed to inline image for HTML export:", error);
+            }
+        })));
+    });
+}
+function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === "string") {
+                resolve(reader.result);
+            }
+            else {
+                reject(new Error("Failed to convert blob to data URL"));
+            }
+        };
+        reader.onerror = () => {
+            reject(reader.error || new Error("Failed to read blob"));
+        };
+        reader.readAsDataURL(blob);
+    });
 }
 // Extract Gemini conversation as HTML
 function extractGeminiHTML() {
@@ -59173,18 +59260,70 @@ function createHTMLDocument(articles) {
       max-width: 1200px;
       margin: 0 auto;
     }
-    article {
+    article, section[data-turn-id] {
       margin-bottom: 2rem;
       padding: 1rem;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       background: #ffffff;
     }
-    article[data-turn="user"] {
+    article[data-turn="user"], section[data-turn="user"] {
       background: #f9fafb;
     }
-    article[data-turn="assistant"] {
+    article[data-turn="assistant"], section[data-turn="assistant"] {
       background: #ffffff;
+    }
+    /* Minimal utility classes used by exported ChatGPT DOM */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .items-end { align-items: flex-end; }
+    .items-start { align-items: flex-start; }
+    .justify-end { justify-content: flex-end; }
+    .justify-start { justify-content: flex-start; }
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
+    .min-w-0 { min-width: 0; }
+    .max-w-full { max-width: 100%; }
+    .overflow-hidden { overflow: hidden; }
+    .whitespace-normal { white-space: normal; }
+    .whitespace-pre-wrap {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .break-words { overflow-wrap: anywhere; }
+    .rounded-\[1\.75rem\], .rounded-\[22px\], .rounded-se-lg {
+      border-radius: 1.75rem;
+    }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+    .leading-6 { line-height: 1.5rem; }
+    .max-h-96 { max-height: 24rem; }
+    .max-w-64 { max-width: 16rem; }
+    .object-cover { object-fit: cover; }
+    .object-center { object-position: center; }
+    img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+    /* Keep user messages on right and assistant on left */
+    section[data-turn="user"] [data-message-author-role="user"] {
+      align-items: flex-end;
+    }
+    section[data-turn="assistant"] [data-message-author-role="assistant"] {
+      align-items: flex-start;
+    }
+    section[data-turn="user"] .user-message-bubble-color {
+      margin-left: auto;
+      max-width: 70%;
+      background: #f1f5f9;
+      color: #111827;
+    }
+    section[data-turn="assistant"] .markdown {
+      margin-right: auto;
+      max-width: 100%;
     }
     .markdown {
       max-width: 100%;
@@ -59209,10 +59348,6 @@ function createHTMLDocument(articles) {
       border-radius: 4px;
       font-family: 'Courier New', monospace;
       font-size: 0.9em;
-    }
-    .whitespace-pre-wrap {
-      white-space: pre-wrap;
-      word-wrap: break-word;
     }
   </style>
 </head>
