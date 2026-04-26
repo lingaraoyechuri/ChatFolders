@@ -11,9 +11,9 @@ const PopupContainer = styled.div`
   width: 420px;
   min-height: 500px;
   background: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 `;
@@ -772,7 +772,7 @@ const Popup: React.FC = () => {
             console.error("[Popup] Error sending message:", error);
             console.error(
               "[Popup] Error details:",
-              error instanceof Error ? error.message : error
+              error instanceof Error ? error.message : error,
             );
             // Check if it's a "receiving end does not exist" error (content script not loaded)
             const errorMessage =
@@ -783,12 +783,12 @@ const Popup: React.FC = () => {
             ) {
               showNotification(
                 "Error: Content script not loaded. Please reload the page and try again.",
-                5000
+                5000,
               );
             } else {
               showNotification(
                 "Error: Please reload the application and try again",
-                4000
+                4000,
               );
             }
           }
@@ -798,7 +798,7 @@ const Popup: React.FC = () => {
       console.error("Error copying as markdown:", error);
       showNotification(
         "Error: Please reload the application and try again",
-        4000
+        4000,
       );
     }
   };
@@ -834,19 +834,19 @@ const Popup: React.FC = () => {
             } else if (response && response.error) {
               showNotification(
                 "Error: Please reload the application and try again",
-                4000
+                4000,
               );
             } else {
               showNotification(
                 "Error: Please reload the application and try again",
-                4000
+                4000,
               );
             }
           } catch (error) {
             console.error("[Popup] Error sending message:", error);
             console.error(
               "[Popup] Error details:",
-              error instanceof Error ? error.message : error
+              error instanceof Error ? error.message : error,
             );
             // Check if it's a "receiving end does not exist" error (content script not loaded)
             const errorMessage =
@@ -857,12 +857,12 @@ const Popup: React.FC = () => {
             ) {
               showNotification(
                 "Error: Content script not loaded. Please reload the page and try again.",
-                5000
+                5000,
               );
             } else {
               showNotification(
                 "Error: Please reload the application and try again",
-                4000
+                4000,
               );
             }
           }
@@ -871,7 +871,7 @@ const Popup: React.FC = () => {
         console.error("Error downloading:", error);
         showNotification(
           "Error: Please reload the application and try again",
-          4000
+          4000,
         );
       } finally {
         setIsDownloading(false);
@@ -901,10 +901,10 @@ const Popup: React.FC = () => {
         format === "markdown"
           ? "text/markdown"
           : format === "json"
-          ? "application/json"
-          : format === "html"
-          ? "text/html"
-          : "text/plain";
+            ? "application/json"
+            : format === "html"
+              ? "text/html"
+              : "text/plain";
       blob = new Blob([content], { type: mimeType });
       url = URL.createObjectURL(blob);
     }
@@ -946,7 +946,7 @@ const Popup: React.FC = () => {
 
   const getSelectedPdfFormatLabel = () => {
     const option = pdfFormatOptions.find(
-      (opt) => opt.value === selectedPdfFormat
+      (opt) => opt.value === selectedPdfFormat,
     );
     return option ? option.label : "A4";
   };

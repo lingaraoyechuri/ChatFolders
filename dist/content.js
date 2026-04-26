@@ -56743,7 +56743,7 @@ const validatePosition = (position) => {
         left: Math.max(margin, Math.min(position.left, maxLeft)),
     };
 };
-const QuestionsCard = ({ questions, onQuestionClick, }) => {
+const QuestionsCard = ({ questions, onQuestionClick, onOpen, }) => {
     const [visible, setVisible] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(false);
     const [copiedIndex, setCopiedIndex] = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(null);
     const defaultPos = getDefaultPosition();
@@ -56825,12 +56825,15 @@ const QuestionsCard = ({ questions, onQuestionClick, }) => {
     }, [isDragging, dragOffset]);
     const handleButtonClick = (e) => {
         if (!isDragging && !hasMoved) {
+            if (onOpen) {
+                onOpen();
+            }
             setVisible(true);
         }
     };
-    const handleQuestionClick = (question) => {
+    const handleQuestionClick = (question, index) => {
         if (onQuestionClick) {
-            onQuestionClick(question);
+            onQuestionClick(question, index);
         }
     };
     const handleCopyClick = (question, index, event) => __awaiter(void 0, void 0, void 0, function* () {
@@ -56866,7 +56869,7 @@ const QuestionsCard = ({ questions, onQuestionClick, }) => {
                                     cursor: "pointer",
                                     marginLeft: 8,
                                     padding: 0,
-                                }, "aria-label": "Close", onClick: () => setVisible(false), children: "\u00D7" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(QuestionList, { children: questions.map((question, index) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(QuestionItem, { onClick: () => handleQuestionClick(question), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(QuestionText, { children: question }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(CopyButton, { "$copied": copiedIndex === index, onClick: (e) => handleCopyClick(question, index, e), title: "Copy question", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CopyIcon, { "$copied": copiedIndex === index, viewBox: "0 0 24 24", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckIcon, { "$copied": copiedIndex === index, viewBox: "0 0 24 24", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" }) })] })] }, index))) })] }))] }));
+                                }, "aria-label": "Close", onClick: () => setVisible(false), children: "\u00D7" })] }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(QuestionList, { children: questions.map((question, index) => ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(QuestionItem, { onClick: () => handleQuestionClick(question, index), children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(QuestionText, { children: question }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)(CopyButton, { "$copied": copiedIndex === index, onClick: (e) => handleCopyClick(question, index, e), title: "Copy question", children: [(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CopyIcon, { "$copied": copiedIndex === index, viewBox: "0 0 24 24", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" }) }), (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(CheckIcon, { "$copied": copiedIndex === index, viewBox: "0 0 24 24", fill: "currentColor", children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("path", { d: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" }) })] })] }, index))) })] }))] }));
 };
 
 
@@ -57352,9 +57355,448 @@ if (!browserAPI || !browserAPI.runtime) {
 }
 console.log("[AI Extension] Browser API ready:", !!browserAPI);
 console.log("[AI Extension] Browser API runtime:", !!(browserAPI === null || browserAPI === void 0 ? void 0 : browserAPI.runtime));
+const EXTENSION_ROOT_ID = "ai-assistant-extension-root";
+const EXTENSION_MOUNT_FLAG = "aiExtMounted";
+let mountObserver = null;
+const isChatGPTPage = () => {
+    const host = window.location.hostname;
+    return host.includes("chatgpt.com") || host.includes("chat.openai.com");
+};
+const normalizePromptText = (text) => {
+    return text.replace(/\r\n/g, "\n").trim();
+};
+const getPrimaryChatContainer = () => {
+    return document.querySelector("main") || document.body;
+};
+const compareDomOrder = (a, b) => {
+    const position = a.compareDocumentPosition(b);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+};
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const getScrollHosts = (chatContainer) => {
+    const elementsToTry = [
+        chatContainer,
+        chatContainer.parentElement,
+        chatContainer.closest('[class*="overflow"]'),
+        document.scrollingElement,
+        document.documentElement,
+        document.body,
+    ].filter(Boolean);
+    const hosts = [];
+    const pushUnique = (host) => {
+        if (!hosts.includes(host)) {
+            hosts.push(host);
+        }
+    };
+    for (const candidate of elementsToTry) {
+        if (!(candidate instanceof HTMLElement))
+            continue;
+        const canScroll = candidate.scrollHeight - candidate.clientHeight > 80;
+        if (!canScroll && candidate !== document.body && candidate !== document.documentElement) {
+            continue;
+        }
+        const overflowY = window.getComputedStyle(candidate).overflowY;
+        const isScrollable = overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
+        if (isScrollable || canScroll) {
+            pushUnique(candidate);
+        }
+    }
+    // ChatGPT frequently uses nested virtualized scrollers that are descendants
+    // of <main>. Gather additional candidates and prioritize larger scroll ranges.
+    const descendantScrollables = Array.from(chatContainer.querySelectorAll("*")).filter((el) => {
+        if (!(el instanceof HTMLElement))
+            return false;
+        const scrollRange = el.scrollHeight - el.clientHeight;
+        if (scrollRange < 140)
+            return false;
+        const style = window.getComputedStyle(el);
+        const overflowY = style.overflowY;
+        return (overflowY === "auto" ||
+            overflowY === "scroll" ||
+            overflowY === "overlay" ||
+            scrollRange > 800);
+    });
+    descendantScrollables
+        .sort((a, b) => b.scrollHeight - b.clientHeight - (a.scrollHeight - a.clientHeight))
+        .slice(0, 10)
+        .forEach((host) => pushUnique(host));
+    pushUnique(window);
+    return hosts;
+};
+const isWindowScrollHost = (host) => {
+    return host === window;
+};
+const getScrollTop = (host) => {
+    if (isWindowScrollHost(host)) {
+        return (window.scrollY ||
+            window.pageYOffset ||
+            document.documentElement.scrollTop ||
+            0);
+    }
+    return host.scrollTop;
+};
+const getScrollMetrics = (host) => {
+    if (isWindowScrollHost(host)) {
+        const doc = document.documentElement;
+        return {
+            maxTop: Math.max(0, doc.scrollHeight - window.innerHeight),
+            viewportHeight: window.innerHeight,
+        };
+    }
+    return {
+        maxTop: Math.max(0, host.scrollHeight - host.clientHeight),
+        viewportHeight: host.clientHeight,
+    };
+};
+const setScrollTop = (host, top) => {
+    if (isWindowScrollHost(host)) {
+        window.scrollTo({ top, behavior: "auto" });
+        return;
+    }
+    host.scrollTop = top;
+};
+const extractChatGPTUserPrompts = (chatContainer) => {
+    var _a;
+    const promptMap = new Map();
+    const fallbackByText = new Set();
+    const addRecord = (id, rawText, element) => {
+        const text = normalizePromptText(rawText || "");
+        if (!text)
+            return;
+        const key = id && id.trim().length > 0 ? `id:${id}` : `text:${text}`;
+        if (promptMap.has(key) || fallbackByText.has(text)) {
+            return;
+        }
+        promptMap.set(key, {
+            id: id && id.trim().length > 0 ? id : key,
+            text,
+            element,
+        });
+        fallbackByText.add(text);
+    };
+    const userArticles = Array.from(chatContainer.querySelectorAll('article[data-turn-id][data-turn="user"]'));
+    for (const article of userArticles) {
+        const articleId = article.getAttribute("data-turn-id");
+        const roleNode = article.querySelector('[data-message-author-role="user"]') || article;
+        addRecord(articleId, roleNode.textContent, article);
+    }
+    const userRoleNodes = Array.from(chatContainer.querySelectorAll('[data-message-author-role="user"]'));
+    for (const node of userRoleNodes) {
+        const parentArticle = node.closest("article[data-turn-id]");
+        const nodeId = (parentArticle === null || parentArticle === void 0 ? void 0 : parentArticle.getAttribute("data-turn-id")) ||
+            node.getAttribute("data-message-id") ||
+            ((_a = node.closest("[data-message-id]")) === null || _a === void 0 ? void 0 : _a.getAttribute("data-message-id"));
+        addRecord(nodeId, node.textContent, parentArticle || node);
+    }
+    // Newer ChatGPT layouts use turn wrappers (e.g., user-turn/agent-turn) where
+    // role attributes can be unstable; infer user turns from wrapper classes.
+    const wrapperTurns = Array.from(chatContainer.querySelectorAll('div[class*="turn-messages"]'));
+    for (const turn of wrapperTurns) {
+        const classes = turn.className || "";
+        if (!classes.includes("user-turn") &&
+            classes.includes("agent-turn")) {
+            continue;
+        }
+        if (classes.includes("user-turn")) {
+            const textSource = turn.querySelector('[data-message-author-role="user"]') ||
+                turn.querySelector('[data-message-id]') ||
+                turn;
+            const turnId = textSource.getAttribute("data-message-id") ||
+                turn.getAttribute("data-message-id") ||
+                turn.getAttribute("data-turn-id");
+            addRecord(turnId, textSource.textContent, turn);
+        }
+    }
+    if (promptMap.size === 0) {
+        const fallbackNodes = Array.from(chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')).filter((el) => {
+            const classes = el.className || "";
+            if (classes.includes("markdown") || classes.includes("prose")) {
+                return false;
+            }
+            return !el.closest('[data-message-author-role="assistant"]');
+        });
+        fallbackNodes.forEach((node, index) => {
+            addRecord(`fallback-${index}`, node.textContent, node);
+        });
+    }
+    return Array.from(promptMap.values()).sort((a, b) => compareDomOrder(a.element || document.body, b.element || document.body));
+};
+const loadChatGPTLazyHistoryRecords = (chatContainer, options) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
+    const maxIterations = (_a = options === null || options === void 0 ? void 0 : options.maxIterations) !== null && _a !== void 0 ? _a : 32;
+    const waitMs = (_b = options === null || options === void 0 ? void 0 : options.waitMs) !== null && _b !== void 0 ? _b : 260;
+    const noGrowthLimit = (_c = options === null || options === void 0 ? void 0 : options.noGrowthLimit) !== null && _c !== void 0 ? _c : 6;
+    const hosts = getScrollHosts(chatContainer);
+    const originalTops = hosts.map((host) => ({ host, top: getScrollTop(host) }));
+    const maxViewportHeight = Math.max(...hosts.map((host) => getScrollMetrics(host).viewportHeight), window.innerHeight);
+    const stepSize = Math.max(300, Math.floor(maxViewportHeight * 0.85));
+    let noGrowthCount = 0;
+    let records = extractChatGPTUserPrompts(chatContainer);
+    let previousCount = records.length;
+    try {
+        for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+            let moved = false;
+            for (const host of hosts) {
+                const currentTop = getScrollTop(host);
+                const nextTop = Math.max(0, currentTop - stepSize);
+                if (nextTop !== currentTop) {
+                    setScrollTop(host, nextTop);
+                    moved = true;
+                }
+            }
+            if (!moved)
+                break;
+            yield wait(waitMs);
+            records = extractChatGPTUserPrompts(chatContainer);
+            if (records.length > previousCount) {
+                previousCount = records.length;
+                noGrowthCount = 0;
+            }
+            else {
+                noGrowthCount += 1;
+            }
+            if (noGrowthCount >= noGrowthLimit) {
+                break;
+            }
+        }
+    }
+    finally {
+        originalTops.forEach(({ host, top }) => setScrollTop(host, top));
+    }
+    return extractChatGPTUserPrompts(chatContainer);
+});
+const getChatGPTConversationId = () => {
+    const match = window.location.pathname.match(/\/c\/([a-zA-Z0-9-]+)/);
+    return (match === null || match === void 0 ? void 0 : match[1]) || null;
+};
+const parsePromptTextFromApiContent = (content) => {
+    if (!content)
+        return "";
+    if (typeof content === "string")
+        return normalizePromptText(content);
+    if (Array.isArray(content)) {
+        return normalizePromptText(content
+            .map((item) => parsePromptTextFromApiContent(item))
+            .filter(Boolean)
+            .join("\n"));
+    }
+    if (typeof content === "object") {
+        if (Array.isArray(content.parts)) {
+            return normalizePromptText(content.parts
+                .map((part) => parsePromptTextFromApiContent(part))
+                .filter(Boolean)
+                .join("\n"));
+        }
+        if (typeof content.text === "string") {
+            return normalizePromptText(content.text);
+        }
+    }
+    return "";
+};
+const fetchChatGPTHistoryPrompts = (conversationId) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const response = yield fetch(`/backend-api/conversation/${conversationId}`, {
+            method: "GET",
+            credentials: "include",
+            headers: {
+                Accept: "application/json",
+            },
+        });
+        if (!response.ok) {
+            console.warn(`[AI Extension] ChatGPT history API request failed (${response.status})`);
+            return [];
+        }
+        const data = yield response.json();
+        const mapping = data === null || data === void 0 ? void 0 : data.mapping;
+        if (!mapping || typeof mapping !== "object") {
+            return [];
+        }
+        const prompts = Object.entries(mapping)
+            .map(([mappingId, node], index) => {
+            var _a, _b, _c, _d, _e;
+            const role = (_b = (_a = node === null || node === void 0 ? void 0 : node.message) === null || _a === void 0 ? void 0 : _a.author) === null || _b === void 0 ? void 0 : _b.role;
+            if (role !== "user")
+                return null;
+            const text = parsePromptTextFromApiContent((_c = node === null || node === void 0 ? void 0 : node.message) === null || _c === void 0 ? void 0 : _c.content);
+            if (!text)
+                return null;
+            const id = ((_d = node === null || node === void 0 ? void 0 : node.message) === null || _d === void 0 ? void 0 : _d.id) || mappingId || `remote-${index}`;
+            const createdAt = typeof ((_e = node === null || node === void 0 ? void 0 : node.message) === null || _e === void 0 ? void 0 : _e.create_time) === "number"
+                ? node.message.create_time
+                : null;
+            return {
+                id,
+                text,
+                createdAt,
+                index,
+            };
+        })
+            .filter(Boolean);
+        prompts.sort((a, b) => {
+            if (a.createdAt != null && b.createdAt != null) {
+                return a.createdAt - b.createdAt;
+            }
+            if (a.createdAt != null)
+                return -1;
+            if (b.createdAt != null)
+                return 1;
+            return a.index - b.index;
+        });
+        console.log(`[AI Extension] ChatGPT API history loaded ${prompts.length} prompts`);
+        return prompts.map((prompt) => ({
+            id: prompt.id,
+            text: prompt.text,
+        }));
+    }
+    catch (error) {
+        console.warn("[AI Extension] Failed to fetch ChatGPT history prompts:", error);
+        return [];
+    }
+});
+const mergePromptRecords = (remotePrompts, domRecords) => {
+    const domById = new Map();
+    const domByTextQueue = new Map();
+    domRecords.forEach((record) => {
+        domById.set(record.id, record);
+        const queue = domByTextQueue.get(record.text) || [];
+        queue.push(record);
+        domByTextQueue.set(record.text, queue);
+    });
+    const merged = [];
+    const usedDomIds = new Set();
+    remotePrompts.forEach((remoteRecord, index) => {
+        const idMatch = domById.get(remoteRecord.id);
+        let domMatch = null;
+        if (idMatch) {
+            domMatch = idMatch;
+        }
+        else {
+            const queue = domByTextQueue.get(remoteRecord.text);
+            domMatch = queue && queue.length > 0 ? queue.shift() || null : null;
+        }
+        if (domMatch === null || domMatch === void 0 ? void 0 : domMatch.id) {
+            usedDomIds.add(domMatch.id);
+        }
+        merged.push({
+            id: remoteRecord.id || (domMatch === null || domMatch === void 0 ? void 0 : domMatch.id) || `remote-${index}`,
+            text: remoteRecord.text,
+            element: domMatch === null || domMatch === void 0 ? void 0 : domMatch.element,
+        });
+    });
+    domRecords.forEach((record) => {
+        if (!usedDomIds.has(record.id)) {
+            merged.push(record);
+        }
+    });
+    return merged;
+};
+const mergeAndPersistChatGPTRecords = (existing, incoming) => {
+    const mergedById = new Map();
+    existing.forEach((record) => {
+        mergedById.set(record.id, record);
+    });
+    incoming.forEach((record) => {
+        const current = mergedById.get(record.id);
+        if (!current) {
+            mergedById.set(record.id, record);
+            return;
+        }
+        mergedById.set(record.id, Object.assign(Object.assign(Object.assign({}, current), record), { element: record.element || current.element }));
+    });
+    return Array.from(mergedById.values());
+};
+const highlightAndScrollToElement = (element) => {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    const htmlElement = element;
+    const originalBackground = htmlElement.style.backgroundColor;
+    htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
+    htmlElement.style.transition = "background-color 0.3s ease";
+    setTimeout(() => {
+        htmlElement.style.backgroundColor = originalBackground;
+    }, 2000);
+};
 const App = () => {
     const [questions, setQuestions] = react__WEBPACK_IMPORTED_MODULE_1___default().useState([]);
     const questionsCardRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const chatGptPromptRecordsRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef([]);
+    const chatGptCachedPromptsRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const chatGptConversationIdRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const chatGptFetchInFlightRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(false);
+    const chatGptLazyLoadInFlightRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const chatGptLazyLoadedKeyRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef(null);
+    const chatGptAccumulatedRecordsRef = react__WEBPACK_IMPORTED_MODULE_1___default().useRef([]);
+    const mergeIntoAccumulatedChatGptRecords = react__WEBPACK_IMPORTED_MODULE_1___default().useCallback((records) => {
+        const merged = mergeAndPersistChatGPTRecords(chatGptAccumulatedRecordsRef.current, records);
+        chatGptAccumulatedRecordsRef.current = merged;
+        return merged;
+    }, []);
+    const getActiveChatContainer = react__WEBPACK_IMPORTED_MODULE_1___default().useCallback(() => {
+        return (document.querySelector("main") ||
+            document.querySelector(".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1") ||
+            document.body);
+    }, []);
+    const hydrateAllChatGptPromptsOnOpen = react__WEBPACK_IMPORTED_MODULE_1___default().useCallback(() => __awaiter(void 0, void 0, void 0, function* () {
+        if (!isChatGPTPage())
+            return;
+        const chatContainer = getActiveChatContainer();
+        if (!chatContainer)
+            return;
+        const conversationId = getChatGPTConversationId();
+        if (conversationId &&
+            !chatGptCachedPromptsRef.current &&
+            !chatGptFetchInFlightRef.current) {
+            chatGptFetchInFlightRef.current = true;
+            try {
+                chatGptCachedPromptsRef.current =
+                    yield fetchChatGPTHistoryPrompts(conversationId);
+            }
+            finally {
+                chatGptFetchInFlightRef.current = false;
+            }
+        }
+        const hosts = getScrollHosts(chatContainer);
+        let noGrowthCount = 0;
+        let lastCount = chatGptAccumulatedRecordsRef.current.length;
+        for (let iteration = 0; iteration < 64; iteration += 1) {
+            hosts.forEach((host) => setScrollTop(host, 0));
+            yield wait(220);
+            const domRecords = extractChatGPTUserPrompts(chatContainer);
+            const mergedCurrent = mergePromptRecords(chatGptCachedPromptsRef.current || [], domRecords);
+            const persisted = mergeIntoAccumulatedChatGptRecords(mergedCurrent);
+            const currentCount = persisted.length;
+            const allAtTop = hosts.every((host) => getScrollTop(host) <= 1);
+            if (currentCount > lastCount) {
+                lastCount = currentCount;
+                noGrowthCount = 0;
+            }
+            else {
+                noGrowthCount += 1;
+            }
+            if (allAtTop && noGrowthCount >= 3) {
+                break;
+            }
+        }
+        const finalRecords = chatGptAccumulatedRecordsRef.current;
+        chatGptPromptRecordsRef.current = finalRecords;
+        setQuestions(finalRecords.map((record) => record.text));
+    }), [getActiveChatContainer, mergeIntoAccumulatedChatGptRecords]);
+    const runChatGPTLazyLoader = react__WEBPACK_IMPORTED_MODULE_1___default().useCallback((chatContainer, force) => __awaiter(void 0, void 0, void 0, function* () {
+        const conversationId = getChatGPTConversationId();
+        const lazyKey = conversationId
+            ? `conversation:${conversationId}`
+            : `path:${window.location.pathname}`;
+        if (!force && chatGptLazyLoadedKeyRef.current === lazyKey) {
+            return extractChatGPTUserPrompts(chatContainer);
+        }
+        if (!chatGptLazyLoadInFlightRef.current) {
+            chatGptLazyLoadInFlightRef.current = loadChatGPTLazyHistoryRecords(chatContainer).finally(() => {
+                chatGptLazyLoadInFlightRef.current = null;
+            });
+        }
+        const loadedRecords = yield chatGptLazyLoadInFlightRef.current;
+        chatGptLazyLoadedKeyRef.current = lazyKey;
+        return loadedRecords;
+    }), []);
     react__WEBPACK_IMPORTED_MODULE_1___default().useEffect(() => {
         // Try different container selectors for different platforms
         let chatContainer = document.querySelector("main");
@@ -57369,10 +57811,40 @@ const App = () => {
         if (!chatContainer)
             return;
         let lastQuestions = [];
-        const getQuestions = () => {
+        let isUpdating = false;
+        let shouldRunAgain = false;
+        const getQuestions = () => __awaiter(void 0, void 0, void 0, function* () {
             var _a;
-            // ChatGPT selector
-            const chatgptQuestions = Array.from(chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')).map((el) => el.textContent || "");
+            let chatgptQuestions = [];
+            if (isChatGPTPage()) {
+                const domRecords = extractChatGPTUserPrompts(chatContainer);
+                const conversationId = getChatGPTConversationId();
+                if (conversationId !== chatGptConversationIdRef.current) {
+                    chatGptConversationIdRef.current = conversationId;
+                    chatGptCachedPromptsRef.current = null;
+                    chatGptLazyLoadedKeyRef.current = null;
+                    chatGptAccumulatedRecordsRef.current = [];
+                }
+                if (conversationId &&
+                    !chatGptCachedPromptsRef.current &&
+                    !chatGptFetchInFlightRef.current) {
+                    chatGptFetchInFlightRef.current = true;
+                    const remotePrompts = yield fetchChatGPTHistoryPrompts(conversationId);
+                    chatGptCachedPromptsRef.current = remotePrompts;
+                    chatGptFetchInFlightRef.current = false;
+                }
+                let mergedRecords = mergePromptRecords(chatGptCachedPromptsRef.current || [], domRecords);
+                const lazyKey = conversationId
+                    ? `conversation:${conversationId}`
+                    : `path:${window.location.pathname}`;
+                if (chatGptLazyLoadedKeyRef.current !== lazyKey) {
+                    const hydratedDomRecords = yield runChatGPTLazyLoader(chatContainer, false);
+                    mergedRecords = mergePromptRecords(chatGptCachedPromptsRef.current || [], hydratedDomRecords);
+                }
+                const persistedRecords = mergeIntoAccumulatedChatGptRecords(mergedRecords);
+                chatGptPromptRecordsRef.current = persistedRecords;
+                chatgptQuestions = persistedRecords.map((record) => record.text);
+            }
             // Perplexity selector: treat each editor div as a single prompt
             const perplexityQuestions = Array.from(chatContainer.querySelectorAll('div[data-lexical-editor="true"][role="textbox"][aria-readonly="true"]')).map((el) => Array.from(el.querySelectorAll("span[data-lexical-text='true']"))
                 .map((span) => span.textContent || "")
@@ -57424,37 +57896,52 @@ const App = () => {
                 ...deepSeekQuestions,
                 ...claudeQuestions,
             ].filter((q) => q.trim() !== "");
-            return Array.from(new Set(allQuestions));
-        };
+            return isChatGPTPage() ? allQuestions : Array.from(new Set(allQuestions));
+        });
         let debounceTimer = null;
-        const updateQuestions = () => {
-            const newQuestions = getQuestions();
-            // Only update if changed
-            if (newQuestions.length !== lastQuestions.length ||
-                newQuestions.some((q, i) => q !== lastQuestions[i])) {
-                setQuestions(newQuestions);
-                lastQuestions = newQuestions;
+        const updateQuestions = () => __awaiter(void 0, void 0, void 0, function* () {
+            if (isUpdating) {
+                shouldRunAgain = true;
+                return;
             }
-        };
+            isUpdating = true;
+            try {
+                do {
+                    shouldRunAgain = false;
+                    const newQuestions = yield getQuestions();
+                    // Only update if changed
+                    if (newQuestions.length !== lastQuestions.length ||
+                        newQuestions.some((q, i) => q !== lastQuestions[i])) {
+                        setQuestions(newQuestions);
+                        lastQuestions = newQuestions;
+                    }
+                } while (shouldRunAgain);
+            }
+            finally {
+                isUpdating = false;
+            }
+        });
         const observer = new MutationObserver(() => {
             if (debounceTimer)
                 clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(updateQuestions, 200); // 200ms debounce
+            debounceTimer = setTimeout(() => {
+                void updateQuestions();
+            }, 250); // 250ms debounce
         });
         observer.observe(chatContainer, {
             childList: true,
             subtree: true,
         });
         // Initial load
-        updateQuestions();
+        void updateQuestions();
         return () => {
             observer.disconnect();
             if (debounceTimer)
                 clearTimeout(debounceTimer);
         };
-    }, []);
-    const handleOnQuestionClick = (question) => {
-        var _a, _b, _c;
+    }, [mergeIntoAccumulatedChatGptRecords, runChatGPTLazyLoader]);
+    const handleOnQuestionClick = (question, index) => __awaiter(void 0, void 0, void 0, function* () {
+        var _a, _b, _c, _d, _e, _f;
         // Try different container selectors for different platforms
         let chatContainer = document.querySelector("main");
         if (!chatContainer) {
@@ -57467,20 +57954,73 @@ const App = () => {
         }
         if (!chatContainer)
             return;
-        // ChatGPT selector
-        const chatgptElements = Array.from(chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]'));
-        for (const element of chatgptElements) {
-            const elementText = (_a = element.textContent) === null || _a === void 0 ? void 0 : _a.trim();
-            if (elementText === question.trim()) {
-                element.scrollIntoView({ behavior: "smooth", block: "center" });
-                const htmlElement = element;
-                const originalBackground = htmlElement.style.backgroundColor;
-                htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-                htmlElement.style.transition = "background-color 0.3s ease";
-                setTimeout(() => {
-                    htmlElement.style.backgroundColor = originalBackground;
-                }, 2000);
+        if (isChatGPTPage()) {
+            const records = chatGptPromptRecordsRef.current;
+            let targetRecord;
+            if (typeof index === "number" &&
+                records[index] &&
+                records[index].text === question.trim()) {
+                targetRecord = records[index];
+            }
+            if (!targetRecord) {
+                targetRecord = records.find((record) => record.text === question.trim());
+            }
+            if ((_a = targetRecord === null || targetRecord === void 0 ? void 0 : targetRecord.element) === null || _a === void 0 ? void 0 : _a.isConnected) {
+                highlightAndScrollToElement(targetRecord.element);
                 return;
+            }
+            // Re-extract in case ChatGPT replaced DOM nodes.
+            const refreshed = extractChatGPTUserPrompts(chatContainer);
+            chatGptPromptRecordsRef.current = refreshed;
+            if (targetRecord) {
+                const byId = refreshed.find((record) => record.id === (targetRecord === null || targetRecord === void 0 ? void 0 : targetRecord.id));
+                if (byId === null || byId === void 0 ? void 0 : byId.element) {
+                    highlightAndScrollToElement(byId.element);
+                    return;
+                }
+            }
+            if (typeof index === "number") {
+                const matchingByText = refreshed.filter((record) => record.text === question.trim());
+                const byIndex = matchingByText[index] || refreshed[index];
+                if (byIndex === null || byIndex === void 0 ? void 0 : byIndex.element) {
+                    highlightAndScrollToElement(byIndex.element);
+                    return;
+                }
+            }
+            const loadedRecords = yield runChatGPTLazyLoader(chatContainer, true);
+            const withHistory = mergePromptRecords(chatGptCachedPromptsRef.current || [], loadedRecords);
+            const persistedRecords = mergeIntoAccumulatedChatGptRecords(withHistory);
+            chatGptPromptRecordsRef.current = persistedRecords;
+            if (typeof index === "number" && persistedRecords[index]) {
+                const byIndex = persistedRecords[index];
+                if (byIndex.text === question.trim() && ((_b = byIndex.element) === null || _b === void 0 ? void 0 : _b.isConnected)) {
+                    highlightAndScrollToElement(byIndex.element);
+                    return;
+                }
+            }
+            const byId = targetRecord
+                ? persistedRecords.find((record) => record.id === (targetRecord === null || targetRecord === void 0 ? void 0 : targetRecord.id))
+                : undefined;
+            if ((_c = byId === null || byId === void 0 ? void 0 : byId.element) === null || _c === void 0 ? void 0 : _c.isConnected) {
+                highlightAndScrollToElement(byId.element);
+                return;
+            }
+            const byText = persistedRecords.find((record) => { var _a; return record.text === question.trim() && ((_a = record.element) === null || _a === void 0 ? void 0 : _a.isConnected); });
+            if (byText === null || byText === void 0 ? void 0 : byText.element) {
+                highlightAndScrollToElement(byText.element);
+                return;
+            }
+            console.warn("[AI Extension] Prompt exists in history but is not mounted in current DOM yet.");
+        }
+        else {
+            // Fallback ChatGPT selector for non-ChatGPT page edge cases
+            const chatgptElements = Array.from(chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]'));
+            for (const element of chatgptElements) {
+                const elementText = (_d = element.textContent) === null || _d === void 0 ? void 0 : _d.trim();
+                if (elementText === question.trim()) {
+                    highlightAndScrollToElement(element);
+                    return;
+                }
             }
         }
         // Perplexity selector: match joined text and highlight the whole editor div
@@ -57491,14 +58031,7 @@ const App = () => {
                 .join("\n")
                 .trim();
             if (joinedText === question.trim()) {
-                editor.scrollIntoView({ behavior: "smooth", block: "center" });
-                const htmlElement = editor;
-                const originalBackground = htmlElement.style.backgroundColor;
-                htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-                htmlElement.style.transition = "background-color 0.3s ease";
-                setTimeout(() => {
-                    htmlElement.style.backgroundColor = originalBackground;
-                }, 2000);
+                highlightAndScrollToElement(editor);
                 return;
             }
         }
@@ -57512,14 +58045,7 @@ const App = () => {
                     .filter((t) => t.trim() !== "");
                 const joinedText = lines.join("\n").trim();
                 if (joinedText === question.trim()) {
-                    queryEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                    const htmlElement = queryEl;
-                    const originalBackground = htmlElement.style.backgroundColor;
-                    htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-                    htmlElement.style.transition = "background-color 0.3s ease";
-                    setTimeout(() => {
-                        htmlElement.style.backgroundColor = originalBackground;
-                    }, 2000);
+                    highlightAndScrollToElement(queryEl);
                     return;
                 }
             }
@@ -57529,16 +58055,9 @@ const App = () => {
         for (const msg of deepSeekUserMessages) {
             const promptEl = msg.querySelector('.fbb737a4, [class^="fbb"]');
             if (promptEl) {
-                const elText = (_b = promptEl.textContent) === null || _b === void 0 ? void 0 : _b.trim();
+                const elText = (_e = promptEl.textContent) === null || _e === void 0 ? void 0 : _e.trim();
                 if (elText === question.trim()) {
-                    promptEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                    const htmlElement = promptEl;
-                    const originalBackground = htmlElement.style.backgroundColor;
-                    htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-                    htmlElement.style.transition = "background-color 0.3s ease";
-                    setTimeout(() => {
-                        htmlElement.style.backgroundColor = originalBackground;
-                    }, 2000);
+                    highlightAndScrollToElement(promptEl);
                     return;
                 }
             }
@@ -57556,30 +58075,25 @@ const App = () => {
             }
             else {
                 // Fallback to getting all text content
-                messageText = ((_c = msg.textContent) === null || _c === void 0 ? void 0 : _c.trim()) || "";
+                messageText = ((_f = msg.textContent) === null || _f === void 0 ? void 0 : _f.trim()) || "";
             }
             if (messageText === question.trim()) {
-                msg.scrollIntoView({ behavior: "smooth", block: "center" });
-                const htmlElement = msg;
-                const originalBackground = htmlElement.style.backgroundColor;
-                htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-                htmlElement.style.transition = "background-color 0.3s ease";
-                setTimeout(() => {
-                    htmlElement.style.backgroundColor = originalBackground;
-                }, 2000);
+                highlightAndScrollToElement(msg);
                 return;
             }
         }
-    };
-    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { ref: questionsCardRef, style: { pointerEvents: "none" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { pointerEvents: "auto" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsCard__WEBPACK_IMPORTED_MODULE_3__.QuestionsCard, { questions: questions, onQuestionClick: handleOnQuestionClick }) }) }));
+    });
+    return ((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { ref: questionsCardRef, style: { pointerEvents: "none" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", { style: { pointerEvents: "auto" }, children: (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(_components_QuestionsCard__WEBPACK_IMPORTED_MODULE_3__.QuestionsCard, { questions: questions, onQuestionClick: handleOnQuestionClick, onOpen: () => {
+                    void hydrateAllChatGptPromptsOnOpen();
+                } }) }) }));
 };
 const createAppContainer = () => {
-    const existingContainer = document.getElementById("ai-assistant-extension-root");
+    const existingContainer = document.getElementById(EXTENSION_ROOT_ID);
     if (existingContainer) {
         return existingContainer;
     }
     const appContainer = document.createElement("div");
-    appContainer.id = "ai-assistant-extension-root";
+    appContainer.id = EXTENSION_ROOT_ID;
     appContainer.style.position = "fixed";
     appContainer.style.top = "0";
     appContainer.style.left = "0";
@@ -57589,6 +58103,37 @@ const createAppContainer = () => {
     appContainer.style.pointerEvents = "none";
     document.body.appendChild(appContainer);
     return appContainer;
+};
+const mountExtensionApp = () => {
+    const container = createAppContainer();
+    if (!container) {
+        console.error("[AI Extension] Failed to create container");
+        return;
+    }
+    if (container.dataset[EXTENSION_MOUNT_FLAG] === "true") {
+        return;
+    }
+    console.log("[AI Extension] Container ready, rendering React app...");
+    const root = (0,react_dom_client__WEBPACK_IMPORTED_MODULE_2__.createRoot)(container);
+    root.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(App, {}));
+    container.dataset[EXTENSION_MOUNT_FLAG] = "true";
+    console.log("[AI Extension] React app rendered successfully");
+};
+const startMountWatcher = () => {
+    if (mountObserver) {
+        return;
+    }
+    // ChatGPT can replace DOM nodes after initial load; remount if our root is removed.
+    mountObserver = new MutationObserver(() => {
+        if (!document.getElementById(EXTENSION_ROOT_ID)) {
+            console.log("[AI Extension] Extension root removed, remounting...");
+            mountExtensionApp();
+        }
+    });
+    mountObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+    });
 };
 // Message listener for downloading chat and copying as markdown
 // Set up BEFORE React initialization to ensure it's always available
@@ -59793,15 +60338,8 @@ const init = () => {
         console.log("[AI Extension] Initializing content script...");
         console.log("[AI Extension] Browser API available:", !!browserAPI);
         console.log("[AI Extension] Browser API runtime:", !!(browserAPI === null || browserAPI === void 0 ? void 0 : browserAPI.runtime));
-        const container = createAppContainer();
-        if (!container) {
-            console.error("[AI Extension] Failed to create container");
-            return;
-        }
-        console.log("[AI Extension] Container created, rendering React app...");
-        const root = (0,react_dom_client__WEBPACK_IMPORTED_MODULE_2__.createRoot)(container);
-        root.render((0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)(App, {}));
-        console.log("[AI Extension] React app rendered successfully");
+        mountExtensionApp();
+        startMountWatcher();
     }
     catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);

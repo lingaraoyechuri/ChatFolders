@@ -207,7 +207,8 @@ const CheckIcon = styled.svg<{ $copied?: boolean }>`
 
 interface QuestionsCardProps {
   questions: string[];
-  onQuestionClick?: (question: string) => void;
+  onQuestionClick?: (question: string, index: number) => void;
+  onOpen?: () => void;
 }
 
 const STORAGE_KEY = "prompts-nav-button-position";
@@ -240,6 +241,7 @@ const validatePosition = (position: { top: number; left: number }) => {
 export const QuestionsCard: React.FC<QuestionsCardProps> = ({
   questions,
   onQuestionClick,
+  onOpen,
 }) => {
   const [visible, setVisible] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -336,20 +338,23 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
 
   const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!isDragging && !hasMoved) {
+      if (onOpen) {
+        onOpen();
+      }
       setVisible(true);
     }
   };
 
-  const handleQuestionClick = (question: string) => {
+  const handleQuestionClick = (question: string, index: number) => {
     if (onQuestionClick) {
-      onQuestionClick(question);
+      onQuestionClick(question, index);
     }
   };
 
   const handleCopyClick = async (
     question: string,
     index: number,
-    event: React.MouseEvent
+    event: React.MouseEvent,
   ) => {
     event.stopPropagation(); // Prevent triggering the question click
 
@@ -417,7 +422,7 @@ export const QuestionsCard: React.FC<QuestionsCardProps> = ({
             {questions.map((question, index) => (
               <QuestionItem
                 key={index}
-                onClick={() => handleQuestionClick(question)}
+                onClick={() => handleQuestionClick(question, index)}
               >
                 <QuestionText>{question}</QuestionText>
                 <CopyButton

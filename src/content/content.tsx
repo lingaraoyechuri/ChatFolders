@@ -68,9 +68,592 @@ if (!browserAPI || !browserAPI.runtime) {
 console.log("[AI Extension] Browser API ready:", !!browserAPI);
 console.log("[AI Extension] Browser API runtime:", !!browserAPI?.runtime);
 
+const EXTENSION_ROOT_ID = "ai-assistant-extension-root";
+const EXTENSION_MOUNT_FLAG = "aiExtMounted";
+let mountObserver: MutationObserver | null = null;
+
+type ChatGPTPromptRecord = {
+  id: string;
+  text: string;
+  element?: Element;
+};
+
+const isChatGPTPage = () => {
+  const host = window.location.hostname;
+  return host.includes("chatgpt.com") || host.includes("chat.openai.com");
+};
+
+const normalizePromptText = (text: string) => {
+  return text.replace(/\r\n/g, "\n").trim();
+};
+
+const getPrimaryChatContainer = (): Element => {
+  return document.querySelector("main") || document.body;
+};
+
+const compareDomOrder = (a: Element, b: Element) => {
+  const position = a.compareDocumentPosition(b);
+  return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getScrollHosts = (chatContainer: Element): Array<HTMLElement | Window> => {
+  const elementsToTry: Element[] = [
+    chatContainer,
+    chatContainer.parentElement as Element,
+    chatContainer.closest('[class*="overflow"]') as Element,
+    document.scrollingElement as Element,
+    document.documentElement,
+    document.body,
+  ].filter(Boolean);
+
+  const hosts: Array<HTMLElement | Window> = [];
+  const pushUnique = (host: HTMLElement | Window) => {
+    if (!hosts.includes(host)) {
+      hosts.push(host);
+    }
+  };
+
+  for (const candidate of elementsToTry) {
+    if (!(candidate instanceof HTMLElement)) continue;
+    const canScroll = candidate.scrollHeight - candidate.clientHeight > 80;
+    if (!canScroll && candidate !== document.body && candidate !== document.documentElement) {
+      continue;
+    }
+    const overflowY = window.getComputedStyle(candidate).overflowY;
+    const isScrollable =
+      overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
+    if (isScrollable || canScroll) {
+      pushUnique(candidate);
+    }
+  }
+
+  // ChatGPT frequently uses nested virtualized scrollers that are descendants
+  // of <main>. Gather additional candidates and prioritize larger scroll ranges.
+  const descendantScrollables = Array.from(
+    chatContainer.querySelectorAll("*")
+  ).filter((el): el is HTMLElement => {
+    if (!(el instanceof HTMLElement)) return false;
+    const scrollRange = el.scrollHeight - el.clientHeight;
+    if (scrollRange < 140) return false;
+    const style = window.getComputedStyle(el);
+    const overflowY = style.overflowY;
+    return (
+      overflowY === "auto" ||
+      overflowY === "scroll" ||
+      overflowY === "overlay" ||
+      scrollRange > 800
+    );
+  });
+
+  descendantScrollables
+    .sort(
+      (a, b) =>
+        b.scrollHeight - b.clientHeight - (a.scrollHeight - a.clientHeight)
+    )
+    .slice(0, 10)
+    .forEach((host) => pushUnique(host));
+
+  pushUnique(window);
+  return hosts;
+};
+
+const isWindowScrollHost = (host: HTMLElement | Window): host is Window => {
+  return host === window;
+};
+
+const getScrollTop = (host: HTMLElement | Window): number => {
+  if (isWindowScrollHost(host)) {
+    return (
+      window.scrollY ||
+      window.pageYOffset ||
+      document.documentElement.scrollTop ||
+      0
+    );
+  }
+  return host.scrollTop;
+};
+
+const getScrollMetrics = (host: HTMLElement | Window) => {
+  if (isWindowScrollHost(host)) {
+    const doc = document.documentElement;
+    return {
+      maxTop: Math.max(0, doc.scrollHeight - window.innerHeight),
+      viewportHeight: window.innerHeight,
+    };
+  }
+  return {
+    maxTop: Math.max(0, host.scrollHeight - host.clientHeight),
+    viewportHeight: host.clientHeight,
+  };
+};
+
+const setScrollTop = (host: HTMLElement | Window, top: number) => {
+  if (isWindowScrollHost(host)) {
+    window.scrollTo({ top, behavior: "auto" });
+    return;
+  }
+  host.scrollTop = top;
+};
+
+const extractChatGPTUserPrompts = (
+  chatContainer: Element
+): ChatGPTPromptRecord[] => {
+  const promptMap = new Map<string, ChatGPTPromptRecord>();
+  const fallbackByText = new Set<string>();
+
+  const addRecord = (
+    id: string | null | undefined,
+    rawText: string | null | undefined,
+    element: Element
+  ) => {
+    const text = normalizePromptText(rawText || "");
+    if (!text) return;
+
+    const key = id && id.trim().length > 0 ? `id:${id}` : `text:${text}`;
+    if (promptMap.has(key) || fallbackByText.has(text)) {
+      return;
+    }
+
+    promptMap.set(key, {
+      id: id && id.trim().length > 0 ? id : key,
+      text,
+      element,
+    });
+    fallbackByText.add(text);
+  };
+
+  const userArticles = Array.from(
+    chatContainer.querySelectorAll('article[data-turn-id][data-turn="user"]')
+  );
+
+  for (const article of userArticles) {
+    const articleId = article.getAttribute("data-turn-id");
+    const roleNode =
+      article.querySelector('[data-message-author-role="user"]') || article;
+    addRecord(articleId, roleNode.textContent, article);
+  }
+
+  const userRoleNodes = Array.from(
+    chatContainer.querySelectorAll('[data-message-author-role="user"]')
+  );
+
+  for (const node of userRoleNodes) {
+    const parentArticle = node.closest("article[data-turn-id]");
+    const nodeId =
+      parentArticle?.getAttribute("data-turn-id") ||
+      node.getAttribute("data-message-id") ||
+      node.closest("[data-message-id]")?.getAttribute("data-message-id");
+    addRecord(nodeId, node.textContent, parentArticle || node);
+  }
+
+  // Newer ChatGPT layouts use turn wrappers (e.g., user-turn/agent-turn) where
+  // role attributes can be unstable; infer user turns from wrapper classes.
+  const wrapperTurns = Array.from(
+    chatContainer.querySelectorAll('div[class*="turn-messages"]')
+  );
+  for (const turn of wrapperTurns) {
+    const classes = turn.className || "";
+    if (
+      !classes.includes("user-turn") &&
+      classes.includes("agent-turn")
+    ) {
+      continue;
+    }
+
+    if (classes.includes("user-turn")) {
+      const textSource =
+        turn.querySelector('[data-message-author-role="user"]') ||
+        turn.querySelector('[data-message-id]') ||
+        turn;
+      const turnId =
+        textSource.getAttribute("data-message-id") ||
+        turn.getAttribute("data-message-id") ||
+        turn.getAttribute("data-turn-id");
+      addRecord(turnId, textSource.textContent, turn);
+    }
+  }
+
+  if (promptMap.size === 0) {
+    const fallbackNodes = Array.from(
+      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
+    ).filter((el) => {
+      const classes = el.className || "";
+      if (classes.includes("markdown") || classes.includes("prose")) {
+        return false;
+      }
+      return !el.closest('[data-message-author-role="assistant"]');
+    });
+
+    fallbackNodes.forEach((node, index) => {
+      addRecord(`fallback-${index}`, node.textContent, node);
+    });
+  }
+
+  return Array.from(promptMap.values()).sort((a, b) =>
+    compareDomOrder(a.element || document.body, b.element || document.body)
+  );
+};
+
+const loadChatGPTLazyHistoryRecords = async (
+  chatContainer: Element,
+  options?: {
+    maxIterations?: number;
+    waitMs?: number;
+    noGrowthLimit?: number;
+  }
+): Promise<ChatGPTPromptRecord[]> => {
+  const maxIterations = options?.maxIterations ?? 32;
+  const waitMs = options?.waitMs ?? 260;
+  const noGrowthLimit = options?.noGrowthLimit ?? 6;
+  const hosts = getScrollHosts(chatContainer);
+  const originalTops = hosts.map((host) => ({ host, top: getScrollTop(host) }));
+  const maxViewportHeight = Math.max(
+    ...hosts.map((host) => getScrollMetrics(host).viewportHeight),
+    window.innerHeight
+  );
+  const stepSize = Math.max(300, Math.floor(maxViewportHeight * 0.85));
+  let noGrowthCount = 0;
+  let records = extractChatGPTUserPrompts(chatContainer);
+  let previousCount = records.length;
+
+  try {
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+      let moved = false;
+      for (const host of hosts) {
+        const currentTop = getScrollTop(host);
+        const nextTop = Math.max(0, currentTop - stepSize);
+        if (nextTop !== currentTop) {
+          setScrollTop(host, nextTop);
+          moved = true;
+        }
+      }
+
+      if (!moved) break;
+      await wait(waitMs);
+
+      records = extractChatGPTUserPrompts(chatContainer);
+      if (records.length > previousCount) {
+        previousCount = records.length;
+        noGrowthCount = 0;
+      } else {
+        noGrowthCount += 1;
+      }
+
+      if (noGrowthCount >= noGrowthLimit) {
+        break;
+      }
+    }
+  } finally {
+    originalTops.forEach(({ host, top }) => setScrollTop(host, top));
+  }
+
+  return extractChatGPTUserPrompts(chatContainer);
+};
+
+const getChatGPTConversationId = (): string | null => {
+  const match = window.location.pathname.match(/\/c\/([a-zA-Z0-9-]+)/);
+  return match?.[1] || null;
+};
+
+const parsePromptTextFromApiContent = (content: any): string => {
+  if (!content) return "";
+  if (typeof content === "string") return normalizePromptText(content);
+  if (Array.isArray(content)) {
+    return normalizePromptText(
+      content
+        .map((item) => parsePromptTextFromApiContent(item))
+        .filter(Boolean)
+        .join("\n")
+    );
+  }
+  if (typeof content === "object") {
+    if (Array.isArray(content.parts)) {
+      return normalizePromptText(
+        content.parts
+          .map((part: any) => parsePromptTextFromApiContent(part))
+          .filter(Boolean)
+          .join("\n")
+      );
+    }
+    if (typeof content.text === "string") {
+      return normalizePromptText(content.text);
+    }
+  }
+  return "";
+};
+
+const fetchChatGPTHistoryPrompts = async (
+  conversationId: string
+): Promise<ChatGPTPromptRecord[]> => {
+  try {
+    const response = await fetch(`/backend-api/conversation/${conversationId}`, {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(
+        `[AI Extension] ChatGPT history API request failed (${response.status})`
+      );
+      return [];
+    }
+
+    const data = await response.json();
+    const mapping = data?.mapping;
+    if (!mapping || typeof mapping !== "object") {
+      return [];
+    }
+
+    const prompts = Object.entries(mapping)
+      .map(([mappingId, node]: [string, any], index) => {
+        const role = node?.message?.author?.role;
+        if (role !== "user") return null;
+
+        const text = parsePromptTextFromApiContent(node?.message?.content);
+        if (!text) return null;
+
+        const id = node?.message?.id || mappingId || `remote-${index}`;
+        const createdAt =
+          typeof node?.message?.create_time === "number"
+            ? node.message.create_time
+            : null;
+
+        return {
+          id,
+          text,
+          createdAt,
+          index,
+        };
+      })
+      .filter(Boolean) as Array<{
+      id: string;
+      text: string;
+      createdAt: number | null;
+      index: number;
+    }>;
+
+    prompts.sort((a, b) => {
+      if (a.createdAt != null && b.createdAt != null) {
+        return a.createdAt - b.createdAt;
+      }
+      if (a.createdAt != null) return -1;
+      if (b.createdAt != null) return 1;
+      return a.index - b.index;
+    });
+
+    console.log(
+      `[AI Extension] ChatGPT API history loaded ${prompts.length} prompts`
+    );
+    return prompts.map((prompt) => ({
+      id: prompt.id,
+      text: prompt.text,
+    }));
+  } catch (error) {
+    console.warn("[AI Extension] Failed to fetch ChatGPT history prompts:", error);
+    return [];
+  }
+};
+
+const mergePromptRecords = (
+  remotePrompts: ChatGPTPromptRecord[],
+  domRecords: ChatGPTPromptRecord[]
+): ChatGPTPromptRecord[] => {
+  const domById = new Map<string, ChatGPTPromptRecord>();
+  const domByTextQueue = new Map<string, ChatGPTPromptRecord[]>();
+  domRecords.forEach((record) => {
+    domById.set(record.id, record);
+    const queue = domByTextQueue.get(record.text) || [];
+    queue.push(record);
+    domByTextQueue.set(record.text, queue);
+  });
+
+  const merged: ChatGPTPromptRecord[] = [];
+  const usedDomIds = new Set<string>();
+  remotePrompts.forEach((remoteRecord, index) => {
+    const idMatch = domById.get(remoteRecord.id);
+    let domMatch: ChatGPTPromptRecord | null = null;
+    if (idMatch) {
+      domMatch = idMatch;
+    } else {
+      const queue = domByTextQueue.get(remoteRecord.text);
+      domMatch = queue && queue.length > 0 ? queue.shift() || null : null;
+    }
+
+    if (domMatch?.id) {
+      usedDomIds.add(domMatch.id);
+    }
+
+    merged.push({
+      id: remoteRecord.id || domMatch?.id || `remote-${index}`,
+      text: remoteRecord.text,
+      element: domMatch?.element,
+    });
+  });
+
+  domRecords.forEach((record) => {
+    if (!usedDomIds.has(record.id)) {
+      merged.push(record);
+    }
+  });
+
+  return merged;
+};
+
+const mergeAndPersistChatGPTRecords = (
+  existing: ChatGPTPromptRecord[],
+  incoming: ChatGPTPromptRecord[]
+): ChatGPTPromptRecord[] => {
+  const mergedById = new Map<string, ChatGPTPromptRecord>();
+
+  existing.forEach((record) => {
+    mergedById.set(record.id, record);
+  });
+
+  incoming.forEach((record) => {
+    const current = mergedById.get(record.id);
+    if (!current) {
+      mergedById.set(record.id, record);
+      return;
+    }
+
+    mergedById.set(record.id, {
+      ...current,
+      ...record,
+      element: record.element || current.element,
+    });
+  });
+
+  return Array.from(mergedById.values());
+};
+
+const highlightAndScrollToElement = (element: Element) => {
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  const htmlElement = element as HTMLElement;
+  const originalBackground = htmlElement.style.backgroundColor;
+  htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
+  htmlElement.style.transition = "background-color 0.3s ease";
+  setTimeout(() => {
+    htmlElement.style.backgroundColor = originalBackground;
+  }, 2000);
+};
+
 const App: React.FC = () => {
   const [questions, setQuestions] = React.useState<string[]>([]);
   const questionsCardRef = React.useRef<HTMLDivElement>(null);
+  const chatGptPromptRecordsRef = React.useRef<ChatGPTPromptRecord[]>([]);
+  const chatGptCachedPromptsRef = React.useRef<ChatGPTPromptRecord[] | null>(
+    null
+  );
+  const chatGptConversationIdRef = React.useRef<string | null>(null);
+  const chatGptFetchInFlightRef = React.useRef(false);
+  const chatGptLazyLoadInFlightRef =
+    React.useRef<Promise<ChatGPTPromptRecord[]> | null>(null);
+  const chatGptLazyLoadedKeyRef = React.useRef<string | null>(null);
+  const chatGptAccumulatedRecordsRef = React.useRef<ChatGPTPromptRecord[]>([]);
+  const mergeIntoAccumulatedChatGptRecords = React.useCallback(
+    (records: ChatGPTPromptRecord[]) => {
+      const merged = mergeAndPersistChatGPTRecords(
+        chatGptAccumulatedRecordsRef.current,
+        records
+      );
+      chatGptAccumulatedRecordsRef.current = merged;
+      return merged;
+    },
+    []
+  );
+  const getActiveChatContainer = React.useCallback(() => {
+    return (
+      document.querySelector("main") ||
+      document.querySelector(
+        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1"
+      ) ||
+      document.body
+    );
+  }, []);
+  const hydrateAllChatGptPromptsOnOpen = React.useCallback(async () => {
+    if (!isChatGPTPage()) return;
+
+    const chatContainer = getActiveChatContainer();
+    if (!chatContainer) return;
+
+    const conversationId = getChatGPTConversationId();
+    if (
+      conversationId &&
+      !chatGptCachedPromptsRef.current &&
+      !chatGptFetchInFlightRef.current
+    ) {
+      chatGptFetchInFlightRef.current = true;
+      try {
+        chatGptCachedPromptsRef.current =
+          await fetchChatGPTHistoryPrompts(conversationId);
+      } finally {
+        chatGptFetchInFlightRef.current = false;
+      }
+    }
+
+    const hosts = getScrollHosts(chatContainer);
+    let noGrowthCount = 0;
+    let lastCount = chatGptAccumulatedRecordsRef.current.length;
+
+    for (let iteration = 0; iteration < 64; iteration += 1) {
+      hosts.forEach((host) => setScrollTop(host, 0));
+      await wait(220);
+
+      const domRecords = extractChatGPTUserPrompts(chatContainer);
+      const mergedCurrent = mergePromptRecords(
+        chatGptCachedPromptsRef.current || [],
+        domRecords
+      );
+      const persisted = mergeIntoAccumulatedChatGptRecords(mergedCurrent);
+      const currentCount = persisted.length;
+      const allAtTop = hosts.every((host) => getScrollTop(host) <= 1);
+
+      if (currentCount > lastCount) {
+        lastCount = currentCount;
+        noGrowthCount = 0;
+      } else {
+        noGrowthCount += 1;
+      }
+
+      if (allAtTop && noGrowthCount >= 3) {
+        break;
+      }
+    }
+
+    const finalRecords = chatGptAccumulatedRecordsRef.current;
+    chatGptPromptRecordsRef.current = finalRecords;
+    setQuestions(finalRecords.map((record) => record.text));
+  }, [getActiveChatContainer, mergeIntoAccumulatedChatGptRecords]);
+  const runChatGPTLazyLoader = React.useCallback(
+    async (chatContainer: Element, force: boolean): Promise<ChatGPTPromptRecord[]> => {
+      const conversationId = getChatGPTConversationId();
+      const lazyKey = conversationId
+        ? `conversation:${conversationId}`
+        : `path:${window.location.pathname}`;
+
+      if (!force && chatGptLazyLoadedKeyRef.current === lazyKey) {
+        return extractChatGPTUserPrompts(chatContainer);
+      }
+
+      if (!chatGptLazyLoadInFlightRef.current) {
+        chatGptLazyLoadInFlightRef.current = loadChatGPTLazyHistoryRecords(
+          chatContainer
+        ).finally(() => {
+          chatGptLazyLoadInFlightRef.current = null;
+        });
+      }
+
+      const loadedRecords = await chatGptLazyLoadInFlightRef.current;
+      chatGptLazyLoadedKeyRef.current = lazyKey;
+      return loadedRecords;
+    },
+    []
+  );
   React.useEffect(() => {
     // Try different container selectors for different platforms
     let chatContainer = document.querySelector("main");
@@ -87,12 +670,56 @@ const App: React.FC = () => {
     if (!chatContainer) return;
 
     let lastQuestions: string[] = [];
+    let isUpdating = false;
+    let shouldRunAgain = false;
 
-    const getQuestions = () => {
-      // ChatGPT selector
-      const chatgptQuestions = Array.from(
-        chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
-      ).map((el) => el.textContent || "");
+    const getQuestions = async () => {
+      let chatgptQuestions: string[] = [];
+      if (isChatGPTPage()) {
+        const domRecords = extractChatGPTUserPrompts(chatContainer);
+        const conversationId = getChatGPTConversationId();
+
+        if (conversationId !== chatGptConversationIdRef.current) {
+          chatGptConversationIdRef.current = conversationId;
+          chatGptCachedPromptsRef.current = null;
+          chatGptLazyLoadedKeyRef.current = null;
+          chatGptAccumulatedRecordsRef.current = [];
+        }
+
+        if (
+          conversationId &&
+          !chatGptCachedPromptsRef.current &&
+          !chatGptFetchInFlightRef.current
+        ) {
+          chatGptFetchInFlightRef.current = true;
+          const remotePrompts = await fetchChatGPTHistoryPrompts(conversationId);
+          chatGptCachedPromptsRef.current = remotePrompts;
+          chatGptFetchInFlightRef.current = false;
+        }
+
+        let mergedRecords = mergePromptRecords(
+          chatGptCachedPromptsRef.current || [],
+          domRecords
+        );
+
+        const lazyKey = conversationId
+          ? `conversation:${conversationId}`
+          : `path:${window.location.pathname}`;
+        if (chatGptLazyLoadedKeyRef.current !== lazyKey) {
+          const hydratedDomRecords = await runChatGPTLazyLoader(
+            chatContainer,
+            false
+          );
+          mergedRecords = mergePromptRecords(
+            chatGptCachedPromptsRef.current || [],
+            hydratedDomRecords
+          );
+        }
+
+        const persistedRecords = mergeIntoAccumulatedChatGptRecords(mergedRecords);
+        chatGptPromptRecordsRef.current = persistedRecords;
+        chatgptQuestions = persistedRecords.map((record) => record.text);
+      }
 
       // Perplexity selector: treat each editor div as a single prompt
       const perplexityQuestions = Array.from(
@@ -165,26 +792,41 @@ const App: React.FC = () => {
         ...claudeQuestions,
       ].filter((q) => q.trim() !== "");
 
-      return Array.from(new Set(allQuestions));
+      return isChatGPTPage() ? allQuestions : Array.from(new Set(allQuestions));
     };
 
     let debounceTimer: NodeJS.Timeout | null = null;
 
-    const updateQuestions = () => {
-      const newQuestions = getQuestions();
-      // Only update if changed
-      if (
-        newQuestions.length !== lastQuestions.length ||
-        newQuestions.some((q, i) => q !== lastQuestions[i])
-      ) {
-        setQuestions(newQuestions);
-        lastQuestions = newQuestions;
+    const updateQuestions = async () => {
+      if (isUpdating) {
+        shouldRunAgain = true;
+        return;
+      }
+
+      isUpdating = true;
+      try {
+        do {
+          shouldRunAgain = false;
+          const newQuestions = await getQuestions();
+          // Only update if changed
+          if (
+            newQuestions.length !== lastQuestions.length ||
+            newQuestions.some((q, i) => q !== lastQuestions[i])
+          ) {
+            setQuestions(newQuestions);
+            lastQuestions = newQuestions;
+          }
+        } while (shouldRunAgain);
+      } finally {
+        isUpdating = false;
       }
     };
 
     const observer = new MutationObserver(() => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(updateQuestions, 200); // 200ms debounce
+      debounceTimer = setTimeout(() => {
+        void updateQuestions();
+      }, 250); // 250ms debounce
     });
 
     observer.observe(chatContainer, {
@@ -193,15 +835,15 @@ const App: React.FC = () => {
     });
 
     // Initial load
-    updateQuestions();
+    void updateQuestions();
 
     return () => {
       observer.disconnect();
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, []);
+  }, [mergeIntoAccumulatedChatGptRecords, runChatGPTLazyLoader]);
 
-  const handleOnQuestionClick = (question: string) => {
+  const handleOnQuestionClick = async (question: string, index?: number) => {
     // Try different container selectors for different platforms
     let chatContainer = document.querySelector("main");
     if (!chatContainer) {
@@ -215,22 +857,94 @@ const App: React.FC = () => {
       chatContainer = document.body;
     }
     if (!chatContainer) return;
-    // ChatGPT selector
-    const chatgptElements = Array.from(
-      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
-    );
-    for (const element of chatgptElements) {
-      const elementText = element.textContent?.trim();
-      if (elementText === question.trim()) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        const htmlElement = element as HTMLElement;
-        const originalBackground = htmlElement.style.backgroundColor;
-        htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-        htmlElement.style.transition = "background-color 0.3s ease";
-        setTimeout(() => {
-          htmlElement.style.backgroundColor = originalBackground;
-        }, 2000);
+    if (isChatGPTPage()) {
+      const records = chatGptPromptRecordsRef.current;
+      let targetRecord: ChatGPTPromptRecord | undefined;
+      if (
+        typeof index === "number" &&
+        records[index] &&
+        records[index].text === question.trim()
+      ) {
+        targetRecord = records[index];
+      }
+      if (!targetRecord) {
+        targetRecord = records.find((record) => record.text === question.trim());
+      }
+
+      if (targetRecord?.element?.isConnected) {
+        highlightAndScrollToElement(targetRecord.element);
         return;
+      }
+
+      // Re-extract in case ChatGPT replaced DOM nodes.
+      const refreshed = extractChatGPTUserPrompts(chatContainer);
+      chatGptPromptRecordsRef.current = refreshed;
+
+      if (targetRecord) {
+        const byId = refreshed.find((record) => record.id === targetRecord?.id);
+        if (byId?.element) {
+          highlightAndScrollToElement(byId.element);
+          return;
+        }
+      }
+
+      if (typeof index === "number") {
+        const matchingByText = refreshed.filter(
+          (record) => record.text === question.trim()
+        );
+        const byIndex = matchingByText[index] || refreshed[index];
+        if (byIndex?.element) {
+          highlightAndScrollToElement(byIndex.element);
+          return;
+        }
+      }
+
+      const loadedRecords = await runChatGPTLazyLoader(chatContainer, true);
+      const withHistory = mergePromptRecords(
+        chatGptCachedPromptsRef.current || [],
+        loadedRecords
+      );
+      const persistedRecords = mergeIntoAccumulatedChatGptRecords(withHistory);
+      chatGptPromptRecordsRef.current = persistedRecords;
+
+      if (typeof index === "number" && persistedRecords[index]) {
+        const byIndex = persistedRecords[index];
+        if (byIndex.text === question.trim() && byIndex.element?.isConnected) {
+          highlightAndScrollToElement(byIndex.element);
+          return;
+        }
+      }
+
+      const byId = targetRecord
+        ? persistedRecords.find((record) => record.id === targetRecord?.id)
+        : undefined;
+      if (byId?.element?.isConnected) {
+        highlightAndScrollToElement(byId.element);
+        return;
+      }
+
+      const byText = persistedRecords.find(
+        (record) => record.text === question.trim() && record.element?.isConnected
+      );
+      if (byText?.element) {
+        highlightAndScrollToElement(byText.element);
+        return;
+      }
+
+      console.warn(
+        "[AI Extension] Prompt exists in history but is not mounted in current DOM yet."
+      );
+    } else {
+      // Fallback ChatGPT selector for non-ChatGPT page edge cases
+      const chatgptElements = Array.from(
+        chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
+      );
+      for (const element of chatgptElements) {
+        const elementText = element.textContent?.trim();
+        if (elementText === question.trim()) {
+          highlightAndScrollToElement(element);
+          return;
+        }
       }
     }
     // Perplexity selector: match joined text and highlight the whole editor div
@@ -247,14 +961,7 @@ const App: React.FC = () => {
         .join("\n")
         .trim();
       if (joinedText === question.trim()) {
-        editor.scrollIntoView({ behavior: "smooth", block: "center" });
-        const htmlElement = editor as HTMLElement;
-        const originalBackground = htmlElement.style.backgroundColor;
-        htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-        htmlElement.style.transition = "background-color 0.3s ease";
-        setTimeout(() => {
-          htmlElement.style.backgroundColor = originalBackground;
-        }, 2000);
+        highlightAndScrollToElement(editor);
         return;
       }
     }
@@ -272,14 +979,7 @@ const App: React.FC = () => {
           .filter((t) => t.trim() !== "");
         const joinedText = lines.join("\n").trim();
         if (joinedText === question.trim()) {
-          queryEl.scrollIntoView({ behavior: "smooth", block: "center" });
-          const htmlElement = queryEl as HTMLElement;
-          const originalBackground = htmlElement.style.backgroundColor;
-          htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-          htmlElement.style.transition = "background-color 0.3s ease";
-          setTimeout(() => {
-            htmlElement.style.backgroundColor = originalBackground;
-          }, 2000);
+          highlightAndScrollToElement(queryEl);
           return;
         }
       }
@@ -293,14 +993,7 @@ const App: React.FC = () => {
       if (promptEl) {
         const elText = promptEl.textContent?.trim();
         if (elText === question.trim()) {
-          promptEl.scrollIntoView({ behavior: "smooth", block: "center" });
-          const htmlElement = promptEl as HTMLElement;
-          const originalBackground = htmlElement.style.backgroundColor;
-          htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-          htmlElement.style.transition = "background-color 0.3s ease";
-          setTimeout(() => {
-            htmlElement.style.backgroundColor = originalBackground;
-          }, 2000);
+          highlightAndScrollToElement(promptEl);
           return;
         }
       }
@@ -324,14 +1017,7 @@ const App: React.FC = () => {
         messageText = msg.textContent?.trim() || "";
       }
       if (messageText === question.trim()) {
-        msg.scrollIntoView({ behavior: "smooth", block: "center" });
-        const htmlElement = msg as HTMLElement;
-        const originalBackground = htmlElement.style.backgroundColor;
-        htmlElement.style.backgroundColor = "rgba(255, 255, 0, 0.2)";
-        htmlElement.style.transition = "background-color 0.3s ease";
-        setTimeout(() => {
-          htmlElement.style.backgroundColor = originalBackground;
-        }, 2000);
+        highlightAndScrollToElement(msg);
         return;
       }
     }
@@ -342,6 +1028,9 @@ const App: React.FC = () => {
         <QuestionsCard
           questions={questions}
           onQuestionClick={handleOnQuestionClick}
+          onOpen={() => {
+            void hydrateAllChatGptPromptsOnOpen();
+          }}
         />
       </div>
     </div>
@@ -349,14 +1038,12 @@ const App: React.FC = () => {
 };
 
 const createAppContainer = () => {
-  const existingContainer = document.getElementById(
-    "ai-assistant-extension-root"
-  );
+  const existingContainer = document.getElementById(EXTENSION_ROOT_ID);
   if (existingContainer) {
     return existingContainer;
   }
   const appContainer = document.createElement("div");
-  appContainer.id = "ai-assistant-extension-root";
+  appContainer.id = EXTENSION_ROOT_ID;
   appContainer.style.position = "fixed";
   appContainer.style.top = "0";
   appContainer.style.left = "0";
@@ -366,6 +1053,43 @@ const createAppContainer = () => {
   appContainer.style.pointerEvents = "none";
   document.body.appendChild(appContainer);
   return appContainer;
+};
+
+const mountExtensionApp = () => {
+  const container = createAppContainer();
+  if (!container) {
+    console.error("[AI Extension] Failed to create container");
+    return;
+  }
+
+  if (container.dataset[EXTENSION_MOUNT_FLAG] === "true") {
+    return;
+  }
+
+  console.log("[AI Extension] Container ready, rendering React app...");
+  const root = createRoot(container);
+  root.render(<App />);
+  container.dataset[EXTENSION_MOUNT_FLAG] = "true";
+  console.log("[AI Extension] React app rendered successfully");
+};
+
+const startMountWatcher = () => {
+  if (mountObserver) {
+    return;
+  }
+
+  // ChatGPT can replace DOM nodes after initial load; remount if our root is removed.
+  mountObserver = new MutationObserver(() => {
+    if (!document.getElementById(EXTENSION_ROOT_ID)) {
+      console.log("[AI Extension] Extension root removed, remounting...");
+      mountExtensionApp();
+    }
+  });
+
+  mountObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 };
 
 // Message listener for downloading chat and copying as markdown
@@ -3127,17 +3851,8 @@ const init = () => {
     console.log("[AI Extension] Initializing content script...");
     console.log("[AI Extension] Browser API available:", !!browserAPI);
     console.log("[AI Extension] Browser API runtime:", !!browserAPI?.runtime);
-
-    const container = createAppContainer();
-    if (!container) {
-      console.error("[AI Extension] Failed to create container");
-      return;
-    }
-
-    console.log("[AI Extension] Container created, rendering React app...");
-    const root = createRoot(container);
-    root.render(<App />);
-    console.log("[AI Extension] React app rendered successfully");
+    mountExtensionApp();
+    startMountWatcher();
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     const errorStack = err instanceof Error ? err.stack : undefined;
