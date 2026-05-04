@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import styled from "styled-components";
 import browserAPI, { tabsQuery, tabsSendMessage } from "../utils/browser";
+import { PRODUCT_INDEX_SHOWCASE_URL } from "../utils/constants";
 
 // Styled Components
 const PopupContainer = styled.div`
@@ -323,30 +324,69 @@ const WarningText = styled.span`
 `;
 
 const Footer = styled.footer`
-  padding: 16px 20px;
+  padding: 14px 20px 16px;
   border-top: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
-  gap: 12px;
-  background: #ffffff;
+  align-items: stretch;
+  gap: 10px;
+  background: #fafafa;
 `;
 
-const FooterText = styled.p`
+const FooterCaption = styled.p`
   margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 500;
   color: #6b7280;
   text-align: center;
-  max-width: 320px;
+  letter-spacing: 0.01em;
+`;
+
+const FooterActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+`;
+
+const ShowcaseFooterLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-decoration: none;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #111827;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
 `;
 
 const BuyMeCoffeeButton = styled.a`
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 14px;
   background: #ffdd00;
   color: #000000;
   border-radius: 6px;
@@ -1054,7 +1094,7 @@ const Popup: React.FC = () => {
             </WarningBanner>
           )}
           <OperateButtons>
-            <PrimaryButton onClick={handleCopyMarkdown}>
+            <PrimaryButton type="button" onClick={handleCopyMarkdown}>
               <CopyIcon />
               Copy as Markdown
             </PrimaryButton>
@@ -1062,6 +1102,10 @@ const Popup: React.FC = () => {
             <ButtonRow>
               <DropdownWrapper data-dropdown-wrapper>
                 <DropdownButton
+                  type="button"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="listbox"
+                  aria-label="Export format"
                   $isOpen={dropdownOpen}
                   onClick={handleDropdownToggle}
                 >
@@ -1083,6 +1127,10 @@ const Popup: React.FC = () => {
               {selectedFormat === "pdf" && (
                 <DropdownWrapper data-pdf-format-dropdown-wrapper>
                   <DropdownButton
+                    type="button"
+                    aria-expanded={pdfFormatDropdownOpen}
+                    aria-haspopup="listbox"
+                    aria-label="PDF page size"
                     $isOpen={pdfFormatDropdownOpen}
                     onClick={handlePdfFormatToggle}
                   >
@@ -1102,7 +1150,11 @@ const Popup: React.FC = () => {
                   </DropdownMenu>
                 </DropdownWrapper>
               )}
-              <PremiumButton onClick={handleDownload} disabled={isDownloading}>
+              <PremiumButton
+                type="button"
+                onClick={handleDownload}
+                disabled={isDownloading}
+              >
                 {isDownloading ? <LoadingSpinner /> : <DownloadIcon />}
               </PremiumButton>
             </ButtonRow>
@@ -1111,18 +1163,26 @@ const Popup: React.FC = () => {
       </MainContent>
 
       <Footer>
-        <FooterText>
-          If this extension solves your pain points or improves your
-          productivity, consider supporting the project.
-        </FooterText>
-        <BuyMeCoffeeButton
-          href="https://buymeacoffee.com/aipromptnavigator"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <BuyMeCoffeeIcon />
-          Buy me a coffee
-        </BuyMeCoffeeButton>
+        <FooterCaption>Enjoying it?</FooterCaption>
+        <FooterActions>
+          <BuyMeCoffeeButton
+            href="https://buymeacoffee.com/aipromptnavigator"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <BuyMeCoffeeIcon />
+            Buy me a coffee
+          </BuyMeCoffeeButton>
+          <ShowcaseFooterLink
+            href={PRODUCT_INDEX_SHOWCASE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Product Index — my extensions and what’s next"
+            aria-label="Open Product Index: more extensions and roadmap"
+          >
+            All extensions
+          </ShowcaseFooterLink>
+        </FooterActions>
       </Footer>
 
       <Notification $show={notification.show}>

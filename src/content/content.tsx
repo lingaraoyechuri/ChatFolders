@@ -29,12 +29,14 @@ let downloadsDownload: any = downloadsDownloadImport;
 // Verify browser API is available
 if (!browserAPI || !browserAPI.runtime) {
   console.warn(
-    "[AI Extension] Browser API not available from import, using chrome fallback"
+    "[AI Extension] Browser API not available from import, using chrome fallback",
   );
   browserAPI = typeof chrome !== "undefined" ? chrome : null;
 
   if (!browserAPI) {
-    console.error("[AI Extension] CRITICAL: chrome extension API not available!");
+    console.error(
+      "[AI Extension] CRITICAL: chrome extension API not available!",
+    );
   } else {
     console.log("[AI Extension] Using fallback browserAPI:", !!browserAPI);
 
@@ -47,7 +49,7 @@ if (!browserAPI || !browserAPI.runtime) {
                 const lastError = browserAPI.runtime.lastError;
                 if (lastError) {
                   reject(
-                    new Error(lastError.message || "Unknown download error")
+                    new Error(lastError.message || "Unknown download error"),
                   );
                 } else {
                   resolve(downloadId);
@@ -98,7 +100,9 @@ const compareDomOrder = (a: Element, b: Element) => {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const getScrollHosts = (chatContainer: Element): Array<HTMLElement | Window> => {
+const getScrollHosts = (
+  chatContainer: Element,
+): Array<HTMLElement | Window> => {
   const elementsToTry: Element[] = [
     chatContainer,
     chatContainer.parentElement as Element,
@@ -118,7 +122,11 @@ const getScrollHosts = (chatContainer: Element): Array<HTMLElement | Window> => 
   for (const candidate of elementsToTry) {
     if (!(candidate instanceof HTMLElement)) continue;
     const canScroll = candidate.scrollHeight - candidate.clientHeight > 80;
-    if (!canScroll && candidate !== document.body && candidate !== document.documentElement) {
+    if (
+      !canScroll &&
+      candidate !== document.body &&
+      candidate !== document.documentElement
+    ) {
       continue;
     }
     const overflowY = window.getComputedStyle(candidate).overflowY;
@@ -132,7 +140,7 @@ const getScrollHosts = (chatContainer: Element): Array<HTMLElement | Window> => 
   // ChatGPT frequently uses nested virtualized scrollers that are descendants
   // of <main>. Gather additional candidates and prioritize larger scroll ranges.
   const descendantScrollables = Array.from(
-    chatContainer.querySelectorAll("*")
+    chatContainer.querySelectorAll("*"),
   ).filter((el): el is HTMLElement => {
     if (!(el instanceof HTMLElement)) return false;
     const scrollRange = el.scrollHeight - el.clientHeight;
@@ -150,7 +158,7 @@ const getScrollHosts = (chatContainer: Element): Array<HTMLElement | Window> => 
   descendantScrollables
     .sort(
       (a, b) =>
-        b.scrollHeight - b.clientHeight - (a.scrollHeight - a.clientHeight)
+        b.scrollHeight - b.clientHeight - (a.scrollHeight - a.clientHeight),
     )
     .slice(0, 10)
     .forEach((host) => pushUnique(host));
@@ -198,7 +206,7 @@ const setScrollTop = (host: HTMLElement | Window, top: number) => {
 };
 
 const extractChatGPTUserPrompts = (
-  chatContainer: Element
+  chatContainer: Element,
 ): ChatGPTPromptRecord[] => {
   const promptMap = new Map<string, ChatGPTPromptRecord>();
   const fallbackByText = new Set<string>();
@@ -206,7 +214,7 @@ const extractChatGPTUserPrompts = (
   const addRecord = (
     id: string | null | undefined,
     rawText: string | null | undefined,
-    element: Element
+    element: Element,
   ) => {
     const text = normalizePromptText(rawText || "");
     if (!text) return;
@@ -225,7 +233,7 @@ const extractChatGPTUserPrompts = (
   };
 
   const userArticles = Array.from(
-    chatContainer.querySelectorAll('article[data-turn-id][data-turn="user"]')
+    chatContainer.querySelectorAll('article[data-turn-id][data-turn="user"]'),
   );
 
   for (const article of userArticles) {
@@ -236,7 +244,7 @@ const extractChatGPTUserPrompts = (
   }
 
   const userRoleNodes = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="user"]')
+    chatContainer.querySelectorAll('[data-message-author-role="user"]'),
   );
 
   for (const node of userRoleNodes) {
@@ -251,21 +259,18 @@ const extractChatGPTUserPrompts = (
   // Newer ChatGPT layouts use turn wrappers (e.g., user-turn/agent-turn) where
   // role attributes can be unstable; infer user turns from wrapper classes.
   const wrapperTurns = Array.from(
-    chatContainer.querySelectorAll('div[class*="turn-messages"]')
+    chatContainer.querySelectorAll('div[class*="turn-messages"]'),
   );
   for (const turn of wrapperTurns) {
     const classes = turn.className || "";
-    if (
-      !classes.includes("user-turn") &&
-      classes.includes("agent-turn")
-    ) {
+    if (!classes.includes("user-turn") && classes.includes("agent-turn")) {
       continue;
     }
 
     if (classes.includes("user-turn")) {
       const textSource =
         turn.querySelector('[data-message-author-role="user"]') ||
-        turn.querySelector('[data-message-id]') ||
+        turn.querySelector("[data-message-id]") ||
         turn;
       const turnId =
         textSource.getAttribute("data-message-id") ||
@@ -277,7 +282,7 @@ const extractChatGPTUserPrompts = (
 
   if (promptMap.size === 0) {
     const fallbackNodes = Array.from(
-      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
+      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]'),
     ).filter((el) => {
       const classes = el.className || "";
       if (classes.includes("markdown") || classes.includes("prose")) {
@@ -292,7 +297,7 @@ const extractChatGPTUserPrompts = (
   }
 
   return Array.from(promptMap.values()).sort((a, b) =>
-    compareDomOrder(a.element || document.body, b.element || document.body)
+    compareDomOrder(a.element || document.body, b.element || document.body),
   );
 };
 
@@ -302,7 +307,7 @@ const loadChatGPTLazyHistoryRecords = async (
     maxIterations?: number;
     waitMs?: number;
     noGrowthLimit?: number;
-  }
+  },
 ): Promise<ChatGPTPromptRecord[]> => {
   const maxIterations = options?.maxIterations ?? 32;
   const waitMs = options?.waitMs ?? 260;
@@ -311,7 +316,7 @@ const loadChatGPTLazyHistoryRecords = async (
   const originalTops = hosts.map((host) => ({ host, top: getScrollTop(host) }));
   const maxViewportHeight = Math.max(
     ...hosts.map((host) => getScrollMetrics(host).viewportHeight),
-    window.innerHeight
+    window.innerHeight,
   );
   const stepSize = Math.max(300, Math.floor(maxViewportHeight * 0.85));
   let noGrowthCount = 0;
@@ -365,7 +370,7 @@ const parsePromptTextFromApiContent = (content: any): string => {
       content
         .map((item) => parsePromptTextFromApiContent(item))
         .filter(Boolean)
-        .join("\n")
+        .join("\n"),
     );
   }
   if (typeof content === "object") {
@@ -374,7 +379,7 @@ const parsePromptTextFromApiContent = (content: any): string => {
         content.parts
           .map((part: any) => parsePromptTextFromApiContent(part))
           .filter(Boolean)
-          .join("\n")
+          .join("\n"),
       );
     }
     if (typeof content.text === "string") {
@@ -385,20 +390,23 @@ const parsePromptTextFromApiContent = (content: any): string => {
 };
 
 const fetchChatGPTHistoryPrompts = async (
-  conversationId: string
+  conversationId: string,
 ): Promise<ChatGPTPromptRecord[]> => {
   try {
-    const response = await fetch(`/backend-api/conversation/${conversationId}`, {
-      method: "GET",
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
+    const response = await fetch(
+      `/backend-api/conversation/${conversationId}`,
+      {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       console.warn(
-        `[AI Extension] ChatGPT history API request failed (${response.status})`
+        `[AI Extension] ChatGPT history API request failed (${response.status})`,
       );
       return [];
     }
@@ -447,21 +455,24 @@ const fetchChatGPTHistoryPrompts = async (
     });
 
     console.log(
-      `[AI Extension] ChatGPT API history loaded ${prompts.length} prompts`
+      `[AI Extension] ChatGPT API history loaded ${prompts.length} prompts`,
     );
     return prompts.map((prompt) => ({
       id: prompt.id,
       text: prompt.text,
     }));
   } catch (error) {
-    console.warn("[AI Extension] Failed to fetch ChatGPT history prompts:", error);
+    console.warn(
+      "[AI Extension] Failed to fetch ChatGPT history prompts:",
+      error,
+    );
     return [];
   }
 };
 
 const mergePromptRecords = (
   remotePrompts: ChatGPTPromptRecord[],
-  domRecords: ChatGPTPromptRecord[]
+  domRecords: ChatGPTPromptRecord[],
 ): ChatGPTPromptRecord[] => {
   const domById = new Map<string, ChatGPTPromptRecord>();
   const domByTextQueue = new Map<string, ChatGPTPromptRecord[]>();
@@ -506,7 +517,7 @@ const mergePromptRecords = (
 
 const mergeAndPersistChatGPTRecords = (
   existing: ChatGPTPromptRecord[],
-  incoming: ChatGPTPromptRecord[]
+  incoming: ChatGPTPromptRecord[],
 ): ChatGPTPromptRecord[] => {
   const mergedById = new Map<string, ChatGPTPromptRecord>();
 
@@ -547,30 +558,31 @@ const App: React.FC = () => {
   const questionsCardRef = React.useRef<HTMLDivElement>(null);
   const chatGptPromptRecordsRef = React.useRef<ChatGPTPromptRecord[]>([]);
   const chatGptCachedPromptsRef = React.useRef<ChatGPTPromptRecord[] | null>(
-    null
+    null,
   );
   const chatGptConversationIdRef = React.useRef<string | null>(null);
   const chatGptFetchInFlightRef = React.useRef(false);
-  const chatGptLazyLoadInFlightRef =
-    React.useRef<Promise<ChatGPTPromptRecord[]> | null>(null);
+  const chatGptLazyLoadInFlightRef = React.useRef<Promise<
+    ChatGPTPromptRecord[]
+  > | null>(null);
   const chatGptLazyLoadedKeyRef = React.useRef<string | null>(null);
   const chatGptAccumulatedRecordsRef = React.useRef<ChatGPTPromptRecord[]>([]);
   const mergeIntoAccumulatedChatGptRecords = React.useCallback(
     (records: ChatGPTPromptRecord[]) => {
       const merged = mergeAndPersistChatGPTRecords(
         chatGptAccumulatedRecordsRef.current,
-        records
+        records,
       );
       chatGptAccumulatedRecordsRef.current = merged;
       return merged;
     },
-    []
+    [],
   );
   const getActiveChatContainer = React.useCallback(() => {
     return (
       document.querySelector("main") ||
       document.querySelector(
-        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1"
+        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1",
       ) ||
       document.body
     );
@@ -607,7 +619,7 @@ const App: React.FC = () => {
       const domRecords = extractChatGPTUserPrompts(chatContainer);
       const mergedCurrent = mergePromptRecords(
         chatGptCachedPromptsRef.current || [],
-        domRecords
+        domRecords,
       );
       const persisted = mergeIntoAccumulatedChatGptRecords(mergedCurrent);
       const currentCount = persisted.length;
@@ -630,7 +642,10 @@ const App: React.FC = () => {
     setQuestions(finalRecords.map((record) => record.text));
   }, [getActiveChatContainer, mergeIntoAccumulatedChatGptRecords]);
   const runChatGPTLazyLoader = React.useCallback(
-    async (chatContainer: Element, force: boolean): Promise<ChatGPTPromptRecord[]> => {
+    async (
+      chatContainer: Element,
+      force: boolean,
+    ): Promise<ChatGPTPromptRecord[]> => {
       const conversationId = getChatGPTConversationId();
       const lazyKey = conversationId
         ? `conversation:${conversationId}`
@@ -642,7 +657,7 @@ const App: React.FC = () => {
 
       if (!chatGptLazyLoadInFlightRef.current) {
         chatGptLazyLoadInFlightRef.current = loadChatGPTLazyHistoryRecords(
-          chatContainer
+          chatContainer,
         ).finally(() => {
           chatGptLazyLoadInFlightRef.current = null;
         });
@@ -652,7 +667,7 @@ const App: React.FC = () => {
       chatGptLazyLoadedKeyRef.current = lazyKey;
       return loadedRecords;
     },
-    []
+    [],
   );
   React.useEffect(() => {
     // Try different container selectors for different platforms
@@ -660,7 +675,7 @@ const App: React.FC = () => {
     if (!chatContainer) {
       // For Claude.ai, try the main content area
       chatContainer = document.querySelector(
-        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1"
+        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1",
       );
     }
     if (!chatContainer) {
@@ -692,17 +707,19 @@ const App: React.FC = () => {
           !chatGptFetchInFlightRef.current
         ) {
           chatGptFetchInFlightRef.current = true;
-          const remotePrompts = await fetchChatGPTHistoryPrompts(conversationId);
+          const remotePrompts =
+            await fetchChatGPTHistoryPrompts(conversationId);
           chatGptCachedPromptsRef.current = remotePrompts;
           chatGptFetchInFlightRef.current = false;
         }
 
         let mergedRecords = mergePromptRecords(
           chatGptCachedPromptsRef.current || [],
-          domRecords
+          domRecords,
         );
 
-        const persistedRecords = mergeIntoAccumulatedChatGptRecords(mergedRecords);
+        const persistedRecords =
+          mergeIntoAccumulatedChatGptRecords(mergedRecords);
         chatGptPromptRecordsRef.current = persistedRecords;
         chatgptQuestions = persistedRecords.map((record) => record.text);
       }
@@ -710,23 +727,23 @@ const App: React.FC = () => {
       // Perplexity selector: treat each editor div as a single prompt
       const perplexityQuestions = Array.from(
         chatContainer.querySelectorAll(
-          'div[data-lexical-editor="true"][role="textbox"][aria-readonly="true"]'
-        )
+          'div[data-lexical-editor="true"][role="textbox"][aria-readonly="true"]',
+        ),
       ).map((el) =>
         Array.from(el.querySelectorAll("span[data-lexical-text='true']"))
           .map((span) => span.textContent || "")
-          .join("\n")
+          .join("\n"),
       );
 
       // Gemini selector: each user-query element
       const geminiQuestions = Array.from(
-        chatContainer.querySelectorAll("user-query")
+        chatContainer.querySelectorAll("user-query"),
       ).map((el) => {
         // Find the prompt text inside div.query-text > p.query-text-line
         const queryTextDiv = el.querySelector("div.query-text");
         if (queryTextDiv) {
           const lines = Array.from(
-            queryTextDiv.querySelectorAll("p.query-text-line")
+            queryTextDiv.querySelectorAll("p.query-text-line"),
           )
             .map((p) => p.textContent || "")
             .filter((t) => t.trim() !== "");
@@ -738,7 +755,7 @@ const App: React.FC = () => {
       // DeepSeek: user prompts are in .ds-message.user, child with class starting with 'fbb'
       const deepSeekQuestions: string[] = [];
       const deepSeekUserMessages = Array.from(
-        chatContainer.querySelectorAll(".ds-message.user")
+        chatContainer.querySelectorAll(".ds-message.user"),
       );
       for (const msg of deepSeekUserMessages) {
         // Find child with class starting with 'fbb' (DeepSeek uses hashed classnames)
@@ -753,11 +770,11 @@ const App: React.FC = () => {
 
       // Claude.ai selector: user messages with data-testid="user-message"
       const claudeQuestions = Array.from(
-        chatContainer.querySelectorAll('div[data-testid="user-message"]')
+        chatContainer.querySelectorAll('div[data-testid="user-message"]'),
       ).map((el) => {
         // Find all p elements with the specific classes and join their content
         const textElements = el.querySelectorAll(
-          "p.whitespace-pre-wrap.break-words"
+          "p.whitespace-pre-wrap.break-words",
         );
         if (textElements.length > 0) {
           return Array.from(textElements)
@@ -835,7 +852,7 @@ const App: React.FC = () => {
     if (!chatContainer) {
       // For Claude.ai, try the main content area
       chatContainer = document.querySelector(
-        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1"
+        ".flex-1.flex.flex-col.gap-3.px-4.max-w-3xl.mx-auto.w-full.pt-1",
       );
     }
     if (!chatContainer) {
@@ -854,7 +871,9 @@ const App: React.FC = () => {
         targetRecord = records[index];
       }
       if (!targetRecord) {
-        targetRecord = records.find((record) => record.text === question.trim());
+        targetRecord = records.find(
+          (record) => record.text === question.trim(),
+        );
       }
 
       if (targetRecord?.element?.isConnected) {
@@ -876,7 +895,7 @@ const App: React.FC = () => {
 
       if (typeof index === "number") {
         const matchingByText = refreshed.filter(
-          (record) => record.text === question.trim()
+          (record) => record.text === question.trim(),
         );
         const byIndex = matchingByText[index] || refreshed[index];
         if (byIndex?.element) {
@@ -888,7 +907,7 @@ const App: React.FC = () => {
       const loadedRecords = await runChatGPTLazyLoader(chatContainer, true);
       const withHistory = mergePromptRecords(
         chatGptCachedPromptsRef.current || [],
-        loadedRecords
+        loadedRecords,
       );
       const persistedRecords = mergeIntoAccumulatedChatGptRecords(withHistory);
       chatGptPromptRecordsRef.current = persistedRecords;
@@ -910,7 +929,8 @@ const App: React.FC = () => {
       }
 
       const byText = persistedRecords.find(
-        (record) => record.text === question.trim() && record.element?.isConnected
+        (record) =>
+          record.text === question.trim() && record.element?.isConnected,
       );
       if (byText?.element) {
         highlightAndScrollToElement(byText.element);
@@ -918,12 +938,12 @@ const App: React.FC = () => {
       }
 
       console.warn(
-        "[AI Extension] Prompt exists in history but is not mounted in current DOM yet."
+        "[AI Extension] Prompt exists in history but is not mounted in current DOM yet.",
       );
     } else {
       // Fallback ChatGPT selector for non-ChatGPT page edge cases
       const chatgptElements = Array.from(
-        chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
+        chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]'),
       );
       for (const element of chatgptElements) {
         const elementText = element.textContent?.trim();
@@ -936,12 +956,12 @@ const App: React.FC = () => {
     // Perplexity selector: match joined text and highlight the whole editor div
     const perplexityEditors = Array.from(
       chatContainer.querySelectorAll(
-        'div[data-lexical-editor="true"][role="textbox"][aria-readonly="true"]'
-      )
+        'div[data-lexical-editor="true"][role="textbox"][aria-readonly="true"]',
+      ),
     );
     for (const editor of perplexityEditors) {
       const joinedText = Array.from(
-        editor.querySelectorAll("span[data-lexical-text='true']")
+        editor.querySelectorAll("span[data-lexical-text='true']"),
       )
         .map((span) => span.textContent || "")
         .join("\n")
@@ -953,13 +973,13 @@ const App: React.FC = () => {
     }
     // Gemini selector: match joined text and highlight the user-query bubble
     const geminiQueries = Array.from(
-      chatContainer.querySelectorAll("user-query")
+      chatContainer.querySelectorAll("user-query"),
     );
     for (const queryEl of geminiQueries) {
       const queryTextDiv = queryEl.querySelector("div.query-text");
       if (queryTextDiv) {
         const lines = Array.from(
-          queryTextDiv.querySelectorAll("p.query-text-line")
+          queryTextDiv.querySelectorAll("p.query-text-line"),
         )
           .map((p) => p.textContent || "")
           .filter((t) => t.trim() !== "");
@@ -972,7 +992,7 @@ const App: React.FC = () => {
     }
     // DeepSeek selector: match text and highlight the user prompt element
     const deepSeekUserMessages = Array.from(
-      chatContainer.querySelectorAll(".ds-message")
+      chatContainer.querySelectorAll(".ds-message"),
     );
     for (const msg of deepSeekUserMessages) {
       const promptEl = msg.querySelector('.fbb737a4, [class^="fbb"]');
@@ -986,11 +1006,11 @@ const App: React.FC = () => {
     }
     // Claude.ai selector: match text and highlight the user message
     const claudeUserMessages = Array.from(
-      chatContainer.querySelectorAll('div[data-testid="user-message"]')
+      chatContainer.querySelectorAll('div[data-testid="user-message"]'),
     );
     for (const msg of claudeUserMessages) {
       const textElements = msg.querySelectorAll(
-        "p.whitespace-pre-wrap.break-words"
+        "p.whitespace-pre-wrap.break-words",
       );
       let messageText = "";
       if (textElements.length > 0) {
@@ -1084,13 +1104,13 @@ console.log("[AI Extension] browserAPI.runtime:", browserAPI?.runtime);
 // Verify browser API is available
 if (!browserAPI || !browserAPI.runtime) {
   console.error(
-    "[AI Extension] CRITICAL: browserAPI or browserAPI.runtime is not available!"
+    "[AI Extension] CRITICAL: browserAPI or browserAPI.runtime is not available!",
   );
   console.error("[AI Extension] typeof browserAPI:", typeof browserAPI);
   console.error("[AI Extension] typeof chrome:", typeof chrome);
   console.error(
     "[AI Extension] typeof browser:",
-    typeof (window as any).browser
+    typeof (window as any).browser,
   );
 } else {
   console.log("[AI Extension] Browser API verified, setting up listener...");
@@ -1119,7 +1139,7 @@ browserAPI.runtime.onMessage.addListener(
             } catch (clipboardError) {
               console.warn(
                 "Clipboard API failed, trying fallback:",
-                clipboardError
+                clipboardError,
               );
               // Fall through to fallback method
             }
@@ -1164,8 +1184,8 @@ browserAPI.runtime.onMessage.addListener(
               execError instanceof Error
                 ? execError.message
                 : execError instanceof DOMException
-                ? execError.name + ": " + execError.message
-                : "Failed to copy to clipboard";
+                  ? execError.name + ": " + execError.message
+                  : "Failed to copy to clipboard";
             console.error("Error with execCommand:", execError);
             sendResponse({
               success: false,
@@ -1178,8 +1198,8 @@ browserAPI.runtime.onMessage.addListener(
             error instanceof Error
               ? error.message
               : error instanceof DOMException
-              ? error.name + ": " + error.message
-              : String(error);
+                ? error.name + ": " + error.message
+                : String(error);
           sendResponse({
             success: false,
             error: errorMessage,
@@ -1205,9 +1225,9 @@ browserAPI.runtime.onMessage.addListener(
             });
           });
         return true; // Keep the message channel open for async response
-      } else if (format.toLowerCase() === "html" && isChatGPTPage()) {
-        // HTML export with image inlining is async for ChatGPT.
-        extractChatGPTHTMLAsync()
+      } else if (format.toLowerCase() === "html") {
+        // HTML export with image inlining is async on supported platforms.
+        extractHTMLForCurrentPlatformAsync()
           .then((chatContent) => {
             if (chatContent) {
               sendResponse({ success: true, content: chatContent });
@@ -1220,7 +1240,7 @@ browserAPI.runtime.onMessage.addListener(
             }
           })
           .catch((error) => {
-            console.error("Error extracting ChatGPT HTML:", error);
+            console.error("Error extracting HTML:", error);
             sendResponse({
               success: false,
               error: error instanceof Error ? error.message : "Unknown error",
@@ -1257,7 +1277,7 @@ browserAPI.runtime.onMessage.addListener(
       }
     }
     return false;
-  }
+  },
 );
 
 // Extract conversation title from Gemini page
@@ -1296,7 +1316,7 @@ async function handlePDFExport(pdfFormat: string = "a4"): Promise<void> {
     messages = extractClaudeMessagesForPDF();
   } else {
     throw new Error(
-      "Please navigate to a supported AI platform (Gemini, ChatGPT, or Claude)"
+      "Please navigate to a supported AI platform (Gemini, ChatGPT, or Claude)",
     );
   }
 
@@ -1312,12 +1332,12 @@ async function handlePDFExport(pdfFormat: string = "a4"): Promise<void> {
 
     if (!hasAnyMessages) {
       throw new Error(
-        "No messages found. Please make sure you have a conversation open and try again."
+        "No messages found. Please make sure you have a conversation open and try again.",
       );
     }
 
     throw new Error(
-      "No messages found to export. The page structure may have changed."
+      "No messages found to export. The page structure may have changed.",
     );
   }
 
@@ -1337,7 +1357,7 @@ async function handlePDFExport(pdfFormat: string = "a4"): Promise<void> {
     messages,
     conversationTitle,
     pdfFormat,
-    platformName
+    platformName,
   );
 }
 
@@ -1378,10 +1398,10 @@ function extractGeminiChat(format: string): string | null {
 
   // Try new selectors first
   const userMessages = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="user"]')
+    chatContainer.querySelectorAll('[data-message-author-role="user"]'),
   );
   const assistantMessages = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="assistant"]')
+    chatContainer.querySelectorAll('[data-message-author-role="assistant"]'),
   );
 
   // If new selectors found messages, use them
@@ -1409,7 +1429,7 @@ function extractGeminiChat(format: string): string | null {
   } else {
     // Fallback to old selectors (user-query, model-response)
     const allElements = Array.from(
-      chatContainer.querySelectorAll("user-query, model-response")
+      chatContainer.querySelectorAll("user-query, model-response"),
     );
 
     for (const element of allElements) {
@@ -1417,7 +1437,7 @@ function extractGeminiChat(format: string): string | null {
         const queryTextDiv = element.querySelector("div.query-text");
         if (queryTextDiv) {
           const lines = Array.from(
-            queryTextDiv.querySelectorAll("p.query-text-line")
+            queryTextDiv.querySelectorAll("p.query-text-line"),
           )
             .map((p) => p.textContent || "")
             .filter((t) => t.trim() !== "");
@@ -1427,11 +1447,11 @@ function extractGeminiChat(format: string): string | null {
         }
       } else if (element.tagName.toLowerCase() === "model-response") {
         let markdownDiv = element.querySelector(
-          "div.markdown.markdown-main-panel"
+          "div.markdown.markdown-main-panel",
         );
         if (!markdownDiv) {
           markdownDiv = element.querySelector(
-            'div[id^="model-response-message-content"]'
+            'div[id^="model-response-message-content"]',
           );
         }
         if (!markdownDiv) {
@@ -1487,7 +1507,7 @@ function extractChatGPTChat(format: string): string | null {
 
   // Strategy 1: Extract from article elements (most reliable for ChatGPT)
   const articles = Array.from(
-    chatContainer.querySelectorAll("article[data-turn-id]")
+    chatContainer.querySelectorAll("article[data-turn-id]"),
   );
 
   if (articles.length > 0) {
@@ -1497,7 +1517,7 @@ function extractChatGPTChat(format: string): string | null {
       // Extract user message
       if (turnRole === "user" || !turnRole) {
         const userMessage = article.querySelector(
-          'div[class*="whitespace-pre-wrap"], [data-message-author-role="user"]'
+          'div[class*="whitespace-pre-wrap"], [data-message-author-role="user"]',
         );
         if (userMessage && !extractedElements.has(userMessage)) {
           const userClasses = userMessage.className || "";
@@ -1517,14 +1537,14 @@ function extractChatGPTChat(format: string): string | null {
       // Extract assistant message
       if (turnRole === "assistant" || !turnRole) {
         const assistantMessage = article.querySelector(
-          'div[class*="markdown"][class*="prose"], [data-message-author-role="assistant"]'
+          'div[class*="markdown"][class*="prose"], [data-message-author-role="assistant"]',
         );
         if (assistantMessage && !extractedElements.has(assistantMessage)) {
           const assistantText = assistantMessage.textContent?.trim() || "";
           if (assistantText) {
             // Check if it's a duplicate of a user message
             const isDuplicateOfUser = messages.some(
-              (msg) => msg.role === "user" && msg.content === assistantText
+              (msg) => msg.role === "user" && msg.content === assistantText,
             );
             if (!isDuplicateOfUser) {
               messages.push({ role: "assistant", content: assistantText });
@@ -1540,7 +1560,7 @@ function extractChatGPTChat(format: string): string | null {
   // Look for top-level message containers - be more specific to avoid nested groups
   if (messages.length === 0) {
     const messageGroups = Array.from(
-      chatContainer.querySelectorAll("[data-message-id]")
+      chatContainer.querySelectorAll("[data-message-id]"),
     ).filter((el) => {
       // Only take top-level message groups, not nested ones
       const parent = el.parentElement;
@@ -1552,7 +1572,7 @@ function extractChatGPTChat(format: string): string | null {
         // Extract user message - ChatGPT user messages have whitespace-pre-wrap class
         // Make sure we're not picking up assistant messages
         const userMessage = group.querySelector(
-          'div[class*="whitespace-pre-wrap"]'
+          'div[class*="whitespace-pre-wrap"]',
         );
         if (userMessage && !extractedElements.has(userMessage)) {
           // Double-check: user messages should NOT have markdown/prose classes
@@ -1573,7 +1593,7 @@ function extractChatGPTChat(format: string): string | null {
         // IMPORTANT: Exclude any divs that contain user messages
         // Assistant responses are in markdown containers, NOT in whitespace-pre-wrap divs
         const assistantContainers = Array.from(
-          group.querySelectorAll("div")
+          group.querySelectorAll("div"),
         ).filter((div) => {
           const classes = div.className || "";
           // Must have flex, w-full, flex-col, gap-1
@@ -1588,7 +1608,7 @@ function extractChatGPTChat(format: string): string | null {
 
           // Must NOT contain a user message
           const hasNoUserMessage = !div.querySelector(
-            'div[class*="whitespace-pre-wrap"]'
+            'div[class*="whitespace-pre-wrap"]',
           );
 
           return hasRequiredClasses && isNotUserMessage && hasNoUserMessage;
@@ -1597,7 +1617,7 @@ function extractChatGPTChat(format: string): string | null {
         for (const assistantContainer of assistantContainers) {
           // Find the markdown content div - look for div with markdown and prose classes
           const markdownDivs = Array.from(
-            assistantContainer.querySelectorAll("div")
+            assistantContainer.querySelectorAll("div"),
           ).filter((div) => {
             const classes = div.className || "";
             // Must have both markdown and prose classes
@@ -1607,7 +1627,7 @@ function extractChatGPTChat(format: string): string | null {
             const isNotUserMessage = !classes.includes("whitespace-pre-wrap");
             // Must NOT be inside a user message container
             const notInUserMessage = !div.closest(
-              'div[class*="whitespace-pre-wrap"]'
+              'div[class*="whitespace-pre-wrap"]',
             );
 
             return hasMarkdownProse && isNotUserMessage && notInUserMessage;
@@ -1619,7 +1639,7 @@ function extractChatGPTChat(format: string): string | null {
               const assistantText = markdownDiv.textContent?.trim() || "";
               // Make sure this text is different from any user message we've already extracted
               const isDuplicateOfUser = messages.some(
-                (msg) => msg.role === "user" && msg.content === assistantText
+                (msg) => msg.role === "user" && msg.content === assistantText,
               );
               if (assistantText && !isDuplicateOfUser) {
                 messages.push({ role: "assistant", content: assistantText });
@@ -1634,7 +1654,7 @@ function extractChatGPTChat(format: string): string | null {
                 assistantContainer.textContent?.trim() || "";
               // Verify this is not a duplicate of a user message
               const isDuplicateOfUser = messages.some(
-                (msg) => msg.role === "user" && msg.content === assistantText
+                (msg) => msg.role === "user" && msg.content === assistantText,
               );
               if (
                 assistantText &&
@@ -1658,7 +1678,7 @@ function extractChatGPTChat(format: string): string | null {
     // Extract user messages that haven't been extracted yet
     // Make sure they're actually user messages (no markdown/prose classes)
     const allUserMessages = Array.from(
-      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
+      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]'),
     ).filter((el) => {
       if (extractedElements.has(el)) return false;
       const classes = el.className || "";
@@ -1669,7 +1689,7 @@ function extractChatGPTChat(format: string): string | null {
     // Extract assistant responses that haven't been extracted yet
     // Make sure they're NOT user messages
     const allAssistantMarkdownDivs = Array.from(
-      chatContainer.querySelectorAll('div[class*="markdown"][class*="prose"]')
+      chatContainer.querySelectorAll('div[class*="markdown"][class*="prose"]'),
     ).filter((el) => {
       if (extractedElements.has(el)) return false;
       const classes = el.className || "";
@@ -1683,7 +1703,7 @@ function extractChatGPTChat(format: string): string | null {
     // If no markdown divs found, try looking for the flex container structure
     if (allAssistantMarkdownDivs.length === 0) {
       const flexContainers = Array.from(
-        chatContainer.querySelectorAll("div")
+        chatContainer.querySelectorAll("div"),
       ).filter((div) => {
         const classes = div.className || "";
         return (
@@ -1724,7 +1744,7 @@ function extractChatGPTChat(format: string): string | null {
           // Additional check: if this is an assistant message, make sure it's not a duplicate of a user message
           if (role === "assistant") {
             const isDuplicateOfUser = messages.some(
-              (msg) => msg.role === "user" && msg.content === text
+              (msg) => msg.role === "user" && msg.content === text,
             );
             if (isDuplicateOfUser) {
               continue; // Skip this assistant message if it's a duplicate of a user message
@@ -1784,16 +1804,16 @@ function extractClaudeChat(format: string): string | null {
   // Claude user messages are in containers with data-testid="user-message"
   const userMessages = Array.from(
     chatContainer.querySelectorAll(
-      '[data-testid="user-message"], div[data-testid*="user-message"]'
-    )
+      '[data-testid="user-message"], div[data-testid*="user-message"]',
+    ),
   );
 
   // Strategy 2: Extract assistant messages
   // Assistant messages are in div.standard-markdown containers
   const assistantContainers = Array.from(
     chatContainer.querySelectorAll(
-      'div.standard-markdown, div[class*="standard-markdown"]'
-    )
+      'div.standard-markdown, div[class*="standard-markdown"]',
+    ),
   );
 
   // Combine and sort all messages by DOM position
@@ -1819,7 +1839,7 @@ function extractClaudeChat(format: string): string | null {
       if (role === "assistant") {
         // For assistant messages, extract from p.font-claude-response-body elements
         const contentElements = element.querySelectorAll(
-          'p.font-claude-response-body, p[class*="font-claude-response-body"], div[class*="standard-markdown"] p'
+          'p.font-claude-response-body, p[class*="font-claude-response-body"], div[class*="standard-markdown"] p',
         );
 
         if (contentElements.length > 0) {
@@ -1851,7 +1871,7 @@ function extractClaudeChat(format: string): string | null {
 
           // Extract code blocks
           const codeBlocks = element.querySelectorAll(
-            'pre.code-block__code, pre[class*="code-block"]'
+            'pre.code-block__code, pre[class*="code-block"]',
           );
           codeBlocks.forEach((pre) => {
             const codeText = pre.textContent?.trim() || "";
@@ -1895,7 +1915,7 @@ function extractClaudeChat(format: string): string | null {
       if (text && text.length > 0) {
         // Check for duplicates
         const isDuplicate = messages.some(
-          (msg) => msg.role === role && msg.content === text
+          (msg) => msg.role === role && msg.content === text,
         );
         if (!isDuplicate) {
           messages.push({ role, content: text });
@@ -1909,7 +1929,7 @@ function extractClaudeChat(format: string): string | null {
   if (messages.length === 0) {
     // Look for message-like containers
     const allMessageBlocks = Array.from(
-      chatContainer.querySelectorAll('article, section, div[class*="message"]')
+      chatContainer.querySelectorAll('article, section, div[class*="message"]'),
     );
 
     for (const block of allMessageBlocks) {
@@ -1920,13 +1940,13 @@ function extractClaudeChat(format: string): string | null {
 
       // Check if it looks like an assistant message (has markdown structure)
       const hasMarkdownStructure = block.querySelector(
-        "div.standard-markdown, p.font-claude-response-body, pre.code-block__code"
+        "div.standard-markdown, p.font-claude-response-body, pre.code-block__code",
       );
       const role = hasMarkdownStructure ? "assistant" : "user";
 
       // Avoid duplicates
       const isDuplicate = messages.some(
-        (msg) => msg.role === role && msg.content === text
+        (msg) => msg.role === role && msg.content === text,
       );
       if (!isDuplicate) {
         messages.push({ role, content: text });
@@ -1977,7 +1997,7 @@ function extractClaudeHTML(): string | null {
   // Find all message elements - need to get the full parent containers
   // For user messages, find the parent container that includes file thumbnails
   const userMessageElements = Array.from(
-    chatContainer.querySelectorAll('[data-testid="user-message"]')
+    chatContainer.querySelectorAll('[data-testid="user-message"]'),
   );
 
   // Get the parent containers for user messages (includes file thumbnails, etc.)
@@ -2003,8 +2023,8 @@ function extractClaudeHTML(): string | null {
   // For assistant messages, get the full response container
   const assistantMessageElements = Array.from(
     chatContainer.querySelectorAll(
-      'div.standard-markdown, div[class*="standard-markdown"]'
-    )
+      'div.standard-markdown, div[class*="standard-markdown"]',
+    ),
   );
 
   // Get the parent containers for assistant messages
@@ -2074,7 +2094,7 @@ function extractClaudeHTML(): string | null {
 }
 
 function formatAsMarkdown(
-  messages: Array<{ role: "user" | "assistant"; content: string }>
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
 ): string {
   let markdown = "# Chat Conversation\n\n";
   markdown += `*Exported on ${new Date().toLocaleString()}*\n\n`;
@@ -2096,7 +2116,7 @@ function formatAsMarkdown(
 }
 
 function formatAsJSON(
-  messages: Array<{ role: "user" | "assistant"; content: string }>
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
 ): string {
   // Pair user and assistant messages together
   const conversationPairs: Array<{ user?: string; assistant?: string }> = [];
@@ -2129,7 +2149,7 @@ function formatAsJSON(
 
 // Format messages as plain text
 function formatAsText(
-  messages: Array<{ role: "user" | "assistant"; content: string }>
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
 ): string {
   return messages
     .map((msg) => {
@@ -2142,6 +2162,22 @@ function formatAsText(
 // Extract ChatGPT conversation as HTML (full DOM structure)
 function extractChatGPTHTML(): string | null {
   return extractChatGPTHTMLFromTurns(getChatGPTExportTurns());
+}
+
+async function extractHTMLForCurrentPlatformAsync(): Promise<string | null> {
+  const url = window.location.href;
+
+  if (url.includes("chatgpt.com") || url.includes("chat.openai.com")) {
+    return extractChatGPTHTMLAsync();
+  }
+  if (url.includes("gemini.google.com")) {
+    return extractGeminiHTMLAsync();
+  }
+  if (url.includes("claude.ai")) {
+    return extractClaudeHTMLAsync();
+  }
+
+  return extractFullChat("html");
 }
 
 async function extractChatGPTHTMLAsync(): Promise<string | null> {
@@ -2157,14 +2193,162 @@ async function extractChatGPTHTMLAsync(): Promise<string | null> {
   return createHTMLDocument(turns);
 }
 
+async function extractClaudeHTMLAsync(): Promise<string | null> {
+  // Find the main container
+  let chatContainer = document.querySelector("main");
+  if (!chatContainer) {
+    chatContainer = document.body;
+  }
+  if (!chatContainer) return null;
+
+  const userMessageElements = Array.from(
+    chatContainer.querySelectorAll('[data-testid="user-message"]'),
+  );
+  const userMessages = userMessageElements.map((el) => {
+    let parent = el.parentElement;
+    while (parent && parent !== chatContainer) {
+      const classes = parent.className || "";
+      if (
+        classes.includes("group") &&
+        classes.includes("relative") &&
+        (classes.includes("inline-flex") || classes.includes("flex"))
+      ) {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+    return el.parentElement || el;
+  });
+
+  const assistantMessageElements = Array.from(
+    chatContainer.querySelectorAll(
+      'div.standard-markdown, div[class*="standard-markdown"]',
+    ),
+  );
+  const assistantContainers = assistantMessageElements.map((el) => {
+    let parent = el.parentElement;
+    while (parent && parent !== chatContainer) {
+      const classes = parent.className || "";
+      if (
+        classes.includes("font-claude-response") ||
+        classes.includes("group")
+      ) {
+        return parent;
+      }
+      parent = parent.parentElement;
+    }
+    return el.parentElement || el;
+  });
+
+  if (userMessages.length === 0 && assistantContainers.length === 0) {
+    return null;
+  }
+
+  const allMessages: Array<{ element: Element; role: "user" | "assistant" }> = [
+    ...userMessages.map((el) => ({ element: el, role: "user" as const })),
+    ...assistantContainers.map((el) => ({
+      element: el,
+      role: "assistant" as const,
+    })),
+  ].sort((a, b) => {
+    const position = a.element.compareDocumentPosition(b.element);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  });
+
+  const messages: Array<{ role: "user" | "assistant"; html: string }> = [];
+  for (const { element, role } of allMessages) {
+    const cloned = element.cloneNode(true) as HTMLElement;
+
+    const unwantedSelectors = [
+      'button[aria-label*="Copy"]',
+      'button[aria-label*="copy"]',
+      'button[aria-label*="Edit"]',
+      'button[aria-label*="Retry"]',
+      'button[aria-label*="Give positive feedback"]',
+      'button[aria-label*="Give negative feedback"]',
+      'button[aria-label*="Show less"]',
+      'button[aria-label*="Show more"]',
+      '[data-testid*="copy"]',
+      '[data-testid*="action-bar"]',
+      '[class*="action-bar"]',
+      '[class*="copy-button"]',
+      '[class*="sticky"]',
+    ];
+    unwantedSelectors.forEach((selector) => {
+      cloned.querySelectorAll(selector).forEach((el) => el.remove());
+    });
+
+    await inlineImagesAsDataUrls(cloned);
+    messages.push({ role, html: cloned.outerHTML });
+  }
+
+  return createHTMLDocumentFromMessages(messages);
+}
+
+async function extractGeminiHTMLAsync(): Promise<string | null> {
+  let chatContainer = document.querySelector("main");
+  if (!chatContainer) {
+    chatContainer = document.body;
+  }
+  if (!chatContainer) return null;
+
+  const messages: Array<{ role: "user" | "assistant"; html: string }> = [];
+
+  // Gemini user uploads are contained in user-query blocks; prefer these first.
+  const userQueries = Array.from(chatContainer.querySelectorAll("user-query"));
+  const modelResponses = Array.from(
+    chatContainer.querySelectorAll("model-response"),
+  );
+
+  const allMessages: Array<{ element: Element; role: "user" | "assistant" }> = (
+    userQueries.length > 0 || modelResponses.length > 0
+      ? [
+          ...userQueries.map((el) => ({ element: el, role: "user" as const })),
+          ...modelResponses.map((el) => ({
+            element: el,
+            role: "assistant" as const,
+          })),
+        ]
+      : [
+          ...Array.from(
+            chatContainer.querySelectorAll('[data-message-author-role="user"]'),
+          ).map((el) => ({ element: el, role: "user" as const })),
+          ...Array.from(
+            chatContainer.querySelectorAll(
+              '[data-message-author-role="assistant"]',
+            ),
+          ).map((el) => ({
+            element: el,
+            role: "assistant" as const,
+          })),
+        ]
+  ).sort((a, b) => {
+    const position = a.element.compareDocumentPosition(b.element);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  });
+
+  if (allMessages.length === 0) {
+    return null;
+  }
+
+  for (const { element, role } of allMessages) {
+    const cloned = element.cloneNode(true) as HTMLElement;
+    cleanHTMLForExport(cloned);
+    await inlineImagesAsDataUrls(cloned);
+    messages.push({ role, html: cloned.outerHTML });
+  }
+
+  return createHTMLDocumentFromMessages(messages);
+}
+
 function getChatGPTExportTurns(): Element[] {
   const getChatGPTTurnElements = (container: ParentNode): Element[] => {
     // New ChatGPT layout uses section[data-testid="conversation-turn-*"].
     // Keep legacy article[data-turn-id] as fallback for older pages.
     const turns = Array.from(
       container.querySelectorAll(
-        '[data-testid^="conversation-turn-"][data-turn-id], article[data-turn-id]'
-      )
+        '[data-testid^="conversation-turn-"][data-turn-id], article[data-turn-id]',
+      ),
     );
     return turns.sort(compareDomOrder);
   };
@@ -2224,7 +2408,7 @@ async function inlineImagesAsDataUrls(container: Element): Promise<void> {
         // Non-blocking fallback: keep original image URL if inlining fails.
         console.warn("Failed to inline image for HTML export:", error);
       }
-    })
+    }),
   );
 }
 
@@ -2256,19 +2440,19 @@ function extractGeminiHTML(): string | null {
 
   // Find all message elements
   const userMessages = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="user"]')
+    chatContainer.querySelectorAll('[data-message-author-role="user"]'),
   );
   const assistantMessages = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="assistant"]')
+    chatContainer.querySelectorAll('[data-message-author-role="assistant"]'),
   );
 
   if (userMessages.length === 0 && assistantMessages.length === 0) {
     // Fallback to old selectors
     const userQueries = Array.from(
-      chatContainer.querySelectorAll("user-query")
+      chatContainer.querySelectorAll("user-query"),
     );
     const modelResponses = Array.from(
-      chatContainer.querySelectorAll("model-response")
+      chatContainer.querySelectorAll("model-response"),
     );
 
     if (userQueries.length === 0 && modelResponses.length === 0) {
@@ -2329,19 +2513,19 @@ function cleanHTMLForExport(element: HTMLElement): void {
       'button[aria-label="More actions"], ' +
       'button[data-testid*="action-button"], ' +
       'div[class*="z-0"].flex, ' + // Action button containers
-      'div[class*="touch:-me-2"]' // Action button wrappers
+      'div[class*="touch:-me-2"]', // Action button wrappers
   );
   buttonsToRemove.forEach((btn) => btn.remove());
 
   // Remove hidden elements
   const hiddenElements = element.querySelectorAll(
-    '[aria-hidden="true"], .sr-only'
+    '[aria-hidden="true"], .sr-only',
   );
   hiddenElements.forEach((el) => el.remove());
 
   // Remove scroll buttons and other UI elements
   const scrollButtons = element.querySelectorAll(
-    'button[class*="scroll"], button[class*="rounded-full"]'
+    'button[class*="scroll"], button[class*="rounded-full"]',
   );
   scrollButtons.forEach((btn) => {
     const parent = btn.parentElement;
@@ -2354,7 +2538,7 @@ function cleanHTMLForExport(element: HTMLElement): void {
 
   // Remove edge markers and separators
   const edgeMarkers = element.querySelectorAll(
-    '[data-edge="true"], div[style*="opacity"]'
+    '[data-edge="true"], div[style*="opacity"]',
   );
   edgeMarkers.forEach((el) => el.remove());
 
@@ -2368,7 +2552,7 @@ function cleanHTMLForExport(element: HTMLElement): void {
       '[class*="avatar_primary"], ' +
       '[class*="avatar_primary_model"], ' +
       '[class*="avatar_primary_animation"], ' +
-      '[class*="avatar_spinner_animation"]'
+      '[class*="avatar_spinner_animation"]',
   );
   avatarGutters.forEach((el) => el.remove());
 
@@ -2376,7 +2560,7 @@ function cleanHTMLForExport(element: HTMLElement): void {
   const ttsContainers = element.querySelectorAll(
     '[class*="response-tts-container"], ' +
       '[class*="tts-button-container"], ' +
-      '[class*="tts-button"]'
+      '[class*="tts-button"]',
   );
   ttsContainers.forEach((el) => {
     // Check if it's mostly empty or has a large height (indicating it's taking up space)
@@ -2393,7 +2577,7 @@ function cleanHTMLForExport(element: HTMLElement): void {
 
   // Remove Lottie animation elements (complex SVG animations)
   const lottieElements = element.querySelectorAll(
-    "[lottie-animation], " + "svg[lottie-animation], " + '[class*="lottie"]'
+    "[lottie-animation], " + "svg[lottie-animation], " + '[class*="lottie"]',
   );
   lottieElements.forEach((el) => {
     // Remove Lottie animations and their parent containers if they're just wrappers
@@ -2412,7 +2596,7 @@ function cleanHTMLForExport(element: HTMLElement): void {
 
   // Remove empty containers with large heights (common in Gemini)
   const largeEmptyContainers = Array.from(
-    element.querySelectorAll("div")
+    element.querySelectorAll("div"),
   ).filter((div) => {
     const style = window.getComputedStyle(div);
     const height = parseInt(style.height) || 0;
@@ -2424,7 +2608,7 @@ function cleanHTMLForExport(element: HTMLElement): void {
 
   // Clean up empty containers
   const emptyContainers = Array.from(element.querySelectorAll("div")).filter(
-    (div) => !div.textContent?.trim() && div.children.length === 0
+    (div) => !div.textContent?.trim() && div.children.length === 0,
   );
   emptyContainers.forEach((div) => div.remove());
 }
@@ -2564,7 +2748,7 @@ function createHTMLDocument(articles: Element[]): string {
 
 // Create a complete HTML document from message elements (Gemini)
 function createHTMLDocumentFromMessages(
-  messages: Array<{ role: "user" | "assistant"; html: string }>
+  messages: Array<{ role: "user" | "assistant"; html: string }>,
 ): string {
   const messagesHTML = messages
     .map((msg) => {
@@ -2672,7 +2856,7 @@ function extractChatGPTMessagesForPDF(): Array<{
 
   // Find all message groups
   const messageGroups = Array.from(
-    chatContainer.querySelectorAll("[data-message-id]")
+    chatContainer.querySelectorAll("[data-message-id]"),
   ).filter((el) => {
     const parent = el.parentElement;
     return !parent || !parent.hasAttribute("data-message-id");
@@ -2682,7 +2866,7 @@ function extractChatGPTMessagesForPDF(): Array<{
     for (const group of messageGroups) {
       // Extract user message
       const userMessage = group.querySelector(
-        'div[class*="whitespace-pre-wrap"]'
+        'div[class*="whitespace-pre-wrap"]',
       );
       if (userMessage && !extractedElements.has(userMessage)) {
         const userClasses = userMessage.className || "";
@@ -2705,7 +2889,7 @@ function extractChatGPTMessagesForPDF(): Array<{
 
       // Extract assistant response
       const assistantContainers = Array.from(
-        group.querySelectorAll("div")
+        group.querySelectorAll("div"),
       ).filter((div) => {
         const classes = div.className || "";
         return (
@@ -2720,7 +2904,7 @@ function extractChatGPTMessagesForPDF(): Array<{
 
       for (const assistantContainer of assistantContainers) {
         const markdownDivs = Array.from(
-          assistantContainer.querySelectorAll("div")
+          assistantContainer.querySelectorAll("div"),
         ).filter((div) => {
           const classes = div.className || "";
           return (
@@ -2738,7 +2922,7 @@ function extractChatGPTMessagesForPDF(): Array<{
             const assistantHTML = markdownDiv.innerHTML || assistantText;
             // Check if it's a duplicate of a user message
             const isDuplicateOfUser = messages.some(
-              (msg) => msg.role === "user" && msg.text === assistantText
+              (msg) => msg.role === "user" && msg.text === assistantText,
             );
             if (assistantText && !isDuplicateOfUser) {
               messages.push({
@@ -2758,7 +2942,7 @@ function extractChatGPTMessagesForPDF(): Array<{
   // Fallback: extract separately if needed
   if (messages.length === 0) {
     const allUserMessages = Array.from(
-      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]')
+      chatContainer.querySelectorAll('div[class*="whitespace-pre-wrap"]'),
     ).filter((el) => {
       if (extractedElements.has(el)) return false;
       const classes = el.className || "";
@@ -2766,7 +2950,7 @@ function extractChatGPTMessagesForPDF(): Array<{
     });
 
     const allAssistantMarkdownDivs = Array.from(
-      chatContainer.querySelectorAll('div[class*="markdown"][class*="prose"]')
+      chatContainer.querySelectorAll('div[class*="markdown"][class*="prose"]'),
     ).filter((el) => {
       if (extractedElements.has(el)) return false;
       const classes = el.className || "";
@@ -2797,7 +2981,7 @@ function extractChatGPTMessagesForPDF(): Array<{
         if (text) {
           if (role === "assistant") {
             const isDuplicateOfUser = messages.some(
-              (msg) => msg.role === "user" && msg.text === text
+              (msg) => msg.role === "user" && msg.text === text,
             );
             if (isDuplicateOfUser) continue;
           }
@@ -2883,15 +3067,15 @@ function extractClaudeMessagesForPDF(): Array<{
   // Extract user messages
   const userMessages = Array.from(
     chatContainer.querySelectorAll(
-      '[data-testid="user-message"], div[data-testid*="user-message"]'
-    )
+      '[data-testid="user-message"], div[data-testid*="user-message"]',
+    ),
   );
 
   // Extract assistant messages
   const assistantContainers = Array.from(
     chatContainer.querySelectorAll(
-      'div.standard-markdown, div[class*="standard-markdown"]'
-    )
+      'div.standard-markdown, div[class*="standard-markdown"]',
+    ),
   );
 
   // Combine and sort all messages by DOM position
@@ -2993,10 +3177,10 @@ function extractGeminiMessagesForPDF(): Array<{
 
   // Find all messages using the new selectors first
   const userMessages = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="user"]')
+    chatContainer.querySelectorAll('[data-message-author-role="user"]'),
   );
   const assistantMessages = Array.from(
-    chatContainer.querySelectorAll('[data-message-author-role="assistant"]')
+    chatContainer.querySelectorAll('[data-message-author-role="assistant"]'),
   );
 
   let allMessageElements: Array<{
@@ -3016,10 +3200,10 @@ function extractGeminiMessagesForPDF(): Array<{
   } else {
     // Fallback to old selectors (user-query, model-response)
     const userQueries = Array.from(
-      chatContainer.querySelectorAll("user-query")
+      chatContainer.querySelectorAll("user-query"),
     );
     const modelResponses = Array.from(
-      chatContainer.querySelectorAll("model-response")
+      chatContainer.querySelectorAll("model-response"),
     );
 
     allMessageElements = [
@@ -3075,11 +3259,11 @@ function extractGeminiMessagesForPDF(): Array<{
     } else if (element.tagName.toLowerCase() === "model-response") {
       // Extract from model-response
       let markdownDiv = clonedElement.querySelector(
-        "div.markdown.markdown-main-panel"
+        "div.markdown.markdown-main-panel",
       );
       if (!markdownDiv) {
         markdownDiv = clonedElement.querySelector(
-          'div[id^="model-response-message-content"]'
+          'div[id^="model-response-message-content"]',
         );
       }
       if (!markdownDiv) {
@@ -3139,12 +3323,12 @@ async function generatePDFFromMessages(
   }>,
   conversationTitle: string = "",
   pdfFormat: string = "a4",
-  platform: string = "chat"
+  platform: string = "chat",
 ): Promise<void> {
   // Create HTML template (body content only)
   const { styles, bodyContent } = createHTMLTemplate(
     messages,
-    conversationTitle
+    conversationTitle,
   );
 
   // Create a hidden container for rendering
@@ -3429,7 +3613,7 @@ async function generatePDFFromMessages(
           margin,
           margin + topBottomSpacing,
           finalWidth,
-          finalHeight
+          finalHeight,
         );
       } else {
         // Multiple pages - split the canvas without overlap to prevent duplication
@@ -3464,7 +3648,7 @@ async function generatePDFFromMessages(
               0,
               0,
               imgWidth,
-              sourceHeight
+              sourceHeight,
             );
 
             const pageImgData = pageCanvas.toDataURL("image/png");
@@ -3478,7 +3662,7 @@ async function generatePDFFromMessages(
               margin,
               margin + topBottomSpacing,
               finalWidth,
-              finalHeight
+              finalHeight,
             );
           }
         }
@@ -3493,7 +3677,7 @@ async function generatePDFFromMessages(
             `${i}/${totalPages}`,
             pdfPageWidth - margin, // Right side
             pdfPageHeight - 10, // Bottom
-            { align: "right" }
+            { align: "right" },
           );
         }
       }
@@ -3567,7 +3751,7 @@ function createHTMLTemplate(
     messageId?: string;
     timestamp?: string;
   }>,
-  conversationTitle: string = ""
+  conversationTitle: string = "",
 ): { styles: string; bodyContent: string } {
   const styles = `
     * {
@@ -3806,70 +3990,70 @@ function createHTMLTemplate(
       // Remove all script tags (including those with attributes)
       processedHTML = processedHTML.replace(
         /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-        ""
+        "",
       );
 
       // Remove all event handlers (onclick, onload, etc.)
       processedHTML = processedHTML.replace(
         /\s+on\w+\s*=\s*["'][^"']*["']/gi,
-        ""
+        "",
       );
 
       // Remove all src attributes pointing to scripts, CDNs, or external URLs
       // Only match actual URLs or script file patterns
       processedHTML = processedHTML.replace(
         /\s+src\s*=\s*["'](?:https?:\/\/[^"']*(?:gstatic\.com|cdnjs\.cloudflare\.com|unpkg\.com|jsdelivr\.net|pdfobject)[^"']*|.*\.js[^"']*|.*script[^"']*|.*boq-bard[^"']*)["']/gi,
-        ""
+        "",
       );
 
       // Remove all data-src attributes with script references or CDN URLs
       // Only match actual URLs or script file patterns
       processedHTML = processedHTML.replace(
         /\s+data-src\s*=\s*["'](?:https?:\/\/[^"']*(?:gstatic\.com|cdnjs\.cloudflare\.com|unpkg\.com|jsdelivr\.net|pdfobject)[^"']*|.*\.js[^"']*|.*script[^"']*|.*boq-bard[^"']*)["']/gi,
-        ""
+        "",
       );
 
       // Remove data-wli attributes (Gemini script loading mechanism)
       processedHTML = processedHTML.replace(
         /\s+data-wli\s*=\s*["'][^"']*["']/gi,
-        ""
+        "",
       );
 
       // Remove ALL data attributes that contain script references or CDN URLs
       // Only match URLs (http/https) or script file patterns, not plain text
       processedHTML = processedHTML.replace(
         /\s+data-[^=]*\s*=\s*["'](?:https?:\/\/[^"']*(?:gstatic\.com|cdnjs\.cloudflare\.com|unpkg\.com|jsdelivr\.net|pdfobject)[^"']*|.*\.js[^"']*|.*script[^"']*|.*boq-bard[^"']*|.*BardChatUi[^"']*|.*wli[^"']*)["']/gi,
-        ""
+        "",
       );
 
       // Remove data-js, data-module, data-script, data-js-module, data-js-component attributes
       processedHTML = processedHTML.replace(
         /\s+data-(?:js|module|script|js-module|js-component)[^=]*\s*=\s*["'][^"']*["']/gi,
-        ""
+        "",
       );
 
       // Remove any attributes containing "boq-bard-web" or "BardChatUi"
       processedHTML = processedHTML.replace(
         /\s+[^=]*\s*=\s*["'][^"']*(?:boq-bard-web|BardChatUi)[^"']*["']/gi,
-        ""
+        "",
       );
 
       // Remove iframe, embed, object tags completely
       processedHTML = processedHTML.replace(
         /<(?:iframe|embed|object)\b[^<]*(?:(?!<\/(?:iframe|embed|object)>)<[^<]*)*<\/(?:iframe|embed|object)>/gi,
-        ""
+        "",
       );
 
       // Final pass: Remove any remaining script-like patterns and CDN URLs
       processedHTML = processedHTML.replace(
         /https?:\/\/[^"'\s]*(?:gstatic\.com|cdnjs\.cloudflare\.com|unpkg\.com|jsdelivr\.net)[^"'\s]*/gi,
-        ""
+        "",
       );
 
       // Remove pdfobject URLs specifically (only actual URLs, not text mentions)
       processedHTML = processedHTML.replace(
         /https?:\/\/[^"'\s]*pdfobject[^"'\s]*\.js[^"'\s]*/gi,
-        ""
+        "",
       );
 
       // Preserve markdown formatting
@@ -3898,7 +4082,7 @@ function createHTMLTemplate(
 }
 
 function formatAsPdf(
-  messages: Array<{ role: "user" | "assistant"; content: string }>
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
 ): string {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();

@@ -57392,7 +57392,9 @@ const getScrollHosts = (chatContainer) => {
         if (!(candidate instanceof HTMLElement))
             continue;
         const canScroll = candidate.scrollHeight - candidate.clientHeight > 80;
-        if (!canScroll && candidate !== document.body && candidate !== document.documentElement) {
+        if (!canScroll &&
+            candidate !== document.body &&
+            candidate !== document.documentElement) {
             continue;
         }
         const overflowY = window.getComputedStyle(candidate).overflowY;
@@ -57493,13 +57495,12 @@ const extractChatGPTUserPrompts = (chatContainer) => {
     const wrapperTurns = Array.from(chatContainer.querySelectorAll('div[class*="turn-messages"]'));
     for (const turn of wrapperTurns) {
         const classes = turn.className || "";
-        if (!classes.includes("user-turn") &&
-            classes.includes("agent-turn")) {
+        if (!classes.includes("user-turn") && classes.includes("agent-turn")) {
             continue;
         }
         if (classes.includes("user-turn")) {
             const textSource = turn.querySelector('[data-message-author-role="user"]') ||
-                turn.querySelector('[data-message-id]') ||
+                turn.querySelector("[data-message-id]") ||
                 turn;
             const turnId = textSource.getAttribute("data-message-id") ||
                 turn.getAttribute("data-message-id") ||
@@ -58241,9 +58242,9 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
             return true; // Keep the message channel open for async response
         }
-        else if (format.toLowerCase() === "html" && isChatGPTPage()) {
-            // HTML export with image inlining is async for ChatGPT.
-            extractChatGPTHTMLAsync()
+        else if (format.toLowerCase() === "html") {
+            // HTML export with image inlining is async on supported platforms.
+            extractHTMLForCurrentPlatformAsync()
                 .then((chatContent) => {
                 if (chatContent) {
                     sendResponse({ success: true, content: chatContent });
@@ -58256,7 +58257,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
             })
                 .catch((error) => {
-                console.error("Error extracting ChatGPT HTML:", error);
+                console.error("Error extracting HTML:", error);
                 sendResponse({
                     success: false,
                     error: error instanceof Error ? error.message : "Unknown error",
@@ -59003,6 +59004,21 @@ function formatAsText(messages) {
 function extractChatGPTHTML() {
     return extractChatGPTHTMLFromTurns(getChatGPTExportTurns());
 }
+function extractHTMLForCurrentPlatformAsync() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const url = window.location.href;
+        if (url.includes("chatgpt.com") || url.includes("chat.openai.com")) {
+            return extractChatGPTHTMLAsync();
+        }
+        if (url.includes("gemini.google.com")) {
+            return extractGeminiHTMLAsync();
+        }
+        if (url.includes("claude.ai")) {
+            return extractClaudeHTMLAsync();
+        }
+        return extractFullChat("html");
+    });
+}
 function extractChatGPTHTMLAsync() {
     return __awaiter(this, void 0, void 0, function* () {
         const turns = getChatGPTExportTurns();
@@ -59013,6 +59029,124 @@ function extractChatGPTHTMLAsync() {
             yield inlineImagesAsDataUrls(turn);
         }
         return createHTMLDocument(turns);
+    });
+}
+function extractClaudeHTMLAsync() {
+    return __awaiter(this, void 0, void 0, function* () {
+        // Find the main container
+        let chatContainer = document.querySelector("main");
+        if (!chatContainer) {
+            chatContainer = document.body;
+        }
+        if (!chatContainer)
+            return null;
+        const userMessageElements = Array.from(chatContainer.querySelectorAll('[data-testid="user-message"]'));
+        const userMessages = userMessageElements.map((el) => {
+            let parent = el.parentElement;
+            while (parent && parent !== chatContainer) {
+                const classes = parent.className || "";
+                if (classes.includes("group") &&
+                    classes.includes("relative") &&
+                    (classes.includes("inline-flex") || classes.includes("flex"))) {
+                    return parent;
+                }
+                parent = parent.parentElement;
+            }
+            return el.parentElement || el;
+        });
+        const assistantMessageElements = Array.from(chatContainer.querySelectorAll('div.standard-markdown, div[class*="standard-markdown"]'));
+        const assistantContainers = assistantMessageElements.map((el) => {
+            let parent = el.parentElement;
+            while (parent && parent !== chatContainer) {
+                const classes = parent.className || "";
+                if (classes.includes("font-claude-response") ||
+                    classes.includes("group")) {
+                    return parent;
+                }
+                parent = parent.parentElement;
+            }
+            return el.parentElement || el;
+        });
+        if (userMessages.length === 0 && assistantContainers.length === 0) {
+            return null;
+        }
+        const allMessages = [
+            ...userMessages.map((el) => ({ element: el, role: "user" })),
+            ...assistantContainers.map((el) => ({
+                element: el,
+                role: "assistant",
+            })),
+        ].sort((a, b) => {
+            const position = a.element.compareDocumentPosition(b.element);
+            return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+        });
+        const messages = [];
+        for (const { element, role } of allMessages) {
+            const cloned = element.cloneNode(true);
+            const unwantedSelectors = [
+                'button[aria-label*="Copy"]',
+                'button[aria-label*="copy"]',
+                'button[aria-label*="Edit"]',
+                'button[aria-label*="Retry"]',
+                'button[aria-label*="Give positive feedback"]',
+                'button[aria-label*="Give negative feedback"]',
+                'button[aria-label*="Show less"]',
+                'button[aria-label*="Show more"]',
+                '[data-testid*="copy"]',
+                '[data-testid*="action-bar"]',
+                '[class*="action-bar"]',
+                '[class*="copy-button"]',
+                '[class*="sticky"]',
+            ];
+            unwantedSelectors.forEach((selector) => {
+                cloned.querySelectorAll(selector).forEach((el) => el.remove());
+            });
+            yield inlineImagesAsDataUrls(cloned);
+            messages.push({ role, html: cloned.outerHTML });
+        }
+        return createHTMLDocumentFromMessages(messages);
+    });
+}
+function extractGeminiHTMLAsync() {
+    return __awaiter(this, void 0, void 0, function* () {
+        let chatContainer = document.querySelector("main");
+        if (!chatContainer) {
+            chatContainer = document.body;
+        }
+        if (!chatContainer)
+            return null;
+        const messages = [];
+        // Gemini user uploads are contained in user-query blocks; prefer these first.
+        const userQueries = Array.from(chatContainer.querySelectorAll("user-query"));
+        const modelResponses = Array.from(chatContainer.querySelectorAll("model-response"));
+        const allMessages = (userQueries.length > 0 || modelResponses.length > 0
+            ? [
+                ...userQueries.map((el) => ({ element: el, role: "user" })),
+                ...modelResponses.map((el) => ({
+                    element: el,
+                    role: "assistant",
+                })),
+            ]
+            : [
+                ...Array.from(chatContainer.querySelectorAll('[data-message-author-role="user"]')).map((el) => ({ element: el, role: "user" })),
+                ...Array.from(chatContainer.querySelectorAll('[data-message-author-role="assistant"]')).map((el) => ({
+                    element: el,
+                    role: "assistant",
+                })),
+            ]).sort((a, b) => {
+            const position = a.element.compareDocumentPosition(b.element);
+            return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+        });
+        if (allMessages.length === 0) {
+            return null;
+        }
+        for (const { element, role } of allMessages) {
+            const cloned = element.cloneNode(true);
+            cleanHTMLForExport(cloned);
+            yield inlineImagesAsDataUrls(cloned);
+            messages.push({ role, html: cloned.outerHTML });
+        }
+        return createHTMLDocumentFromMessages(messages);
     });
 }
 function getChatGPTExportTurns() {
@@ -59154,8 +59288,7 @@ function cleanHTMLForExport(element) {
         'button[aria-label="More actions"], ' +
         'button[data-testid*="action-button"], ' +
         'div[class*="z-0"].flex, ' + // Action button containers
-        'div[class*="touch:-me-2"]' // Action button wrappers
-    );
+        'div[class*="touch:-me-2"]');
     buttonsToRemove.forEach((btn) => btn.remove());
     // Remove hidden elements
     const hiddenElements = element.querySelectorAll('[aria-hidden="true"], .sr-only');

@@ -9,7 +9,11 @@ const BUTTON_ID = "ai-assistant-extension-button";
 const SIDEPANEL_ID = "ai-helper-sidepanel";
 const OVERLAY_ID = "ai-helper-overlay";
 
+/** Public showcase of extensions and roadmap (Product Index). */
+const PRODUCT_INDEX_SHOWCASE_URL = "https://product-index-d5d1d.web.app/";
+
 export {
+  PRODUCT_INDEX_SHOWCASE_URL,
   PERPLEXITY_DOMAIN,
   CHATGPT_DOMAIN,
   DEEPSEEK_DOMAIN,
